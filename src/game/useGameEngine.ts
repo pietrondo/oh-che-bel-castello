@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import type { GameState, BuildingType, Resources, ResourceType, Dialogue, DialogueOption } from './types';
+import type { GameState, BuildingType, Resources, Dialogue, DialogueOption, ResourceType, Building, Caravan, WeatherType, Law, Faction } from './types';
 import { INITIAL_STATE, BUILDINGS } from './constants';
 
 const TICK_RATE = 1000;
-const SAVE_KEY = 'feudal_lord_grand_v3';
+const SAVE_KEY = 'feudal_lord_final_logic_v1';
 
 export function useGameEngine() {
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -41,35 +41,47 @@ export function useGameEngine() {
 
     const nextTime = { ...state.time, tick: state.time.tick + 1 };
     
-    // Time Advancement
     if (nextTime.tick >= 10) {
       nextTime.tick = 0;
       nextTime.day += 1;
       if (nextTime.day > 30) {
-        nextTime.day = 1;
-        nextTime.month += 1;
+        nextTime.day = 1; nextTime.month += 1;
         if (nextTime.month > 12) { nextTime.month = 1; nextTime.year += 1; }
       }
     }
 
     const nextResources = { ...state.resources };
     
-    // Technology Bonuses
-    const hasCropRotation = state.technologies.find(t => t.id === 'crop_rotation')?.unlocked;
-    const hasMining = state.technologies.find(t => t.id === 'mining')?.unlocked;
-    const productivityMod = (state.population.happiness / 100);
+    // Infrastructure & Efficiency
+    const nextBuildings = state.buildings.map(b => {
+        if (b.type === 'road' || b.type === 'well') return b;
+        const nearRoad = state.buildings.some(r => r.type === 'road' && Math.abs(r.x - b.x) <= 2 && Math.abs(r.y - b.y) <= 2);
+        return { ...b, efficiencyBonus: nearRoad ? 0.2 : 0 };
+    });
 
-    // Production Logic
-    state.buildings.forEach((b) => {
+    // Health Logic
+    const wells = state.buildings.filter(b => b.type === 'well').length;
+    const healthReq = state.population.total / 15;
+    let nextHealth = state.population.health;
+    if (wells < healthReq) nextHealth = Math.max(0, nextHealth - 0.5);
+    else nextHealth = Math.min(100, nextHealth + 0.2);
+
+    // Law Modifiers & Faction Favor
+    const hasForcedLabor = state.laws.find(l => l.id === 'forced_labor')?.active;
+    const hasTithe = state.laws.find(l => l.id === 'tithe')?.active;
+    const hasConscription = state.laws.find(l => l.id === 'conscription')?.active;
+
+    // Production logic
+    const productivityMod = (state.population.happiness / 100) * (state.population.health / 100) * (hasForcedLabor ? 1.3 : 1.0);
+    
+    nextBuildings.forEach((b) => {
       const data = BUILDINGS[b.type];
       const workRatio = data.maxWorkers > 0 ? b.assignedWorkers / data.maxWorkers : 1;
       if (workRatio <= 0 && data.maxWorkers > 0) return;
 
       if (data.production) {
         Object.entries(data.production).forEach(([res, amount]) => {
-          let final = (amount as number) * workRatio * productivityMod;
-          if (res === 'food' && hasCropRotation) final *= 1.25;
-          if ((res === 'iron' || res === 'stone') && hasMining) final *= 1.3;
+          let final = (amount as number) * workRatio * productivityMod * (1 + b.efficiencyBonus);
           nextResources[res as keyof Resources] += final;
         });
       }
@@ -80,66 +92,73 @@ export function useGameEngine() {
       }
     });
 
-    // Consumption & Social
-    const foodCons = (state.population.peasants * 0.4) + (state.population.citizens * 0.6) + (state.population.nobles * 1.0);
-    nextResources.food = Math.max(0, nextResources.food - foodCons);
-
-    // Social Evolution
-    const nextPop = { ...state.population };
-    if (state.population.happiness > 90 && nextResources.food > 200 && Math.random() > 0.98) {
-        nextPop.peasants += 1;
-        nextPop.total += 1;
+    // Consumption of special goods
+    if (state.population.citizens > 0) {
+        if (nextResources.beer >= state.population.citizens * 0.1) nextResources.beer -= state.population.citizens * 0.1;
+        else state.population.happiness -= 1;
+    }
+    if (state.population.nobles > 0) {
+        if (nextResources.wine >= state.population.nobles * 0.1) nextResources.wine -= state.population.nobles * 0.1;
+        else state.population.happiness -= 2;
     }
 
-    // Dialogue Triggers
-    let nextDialogue: Dialogue | null = null;
-    if (nextResources.food <= 0 && Math.random() > 0.9) {
-        nextDialogue = {
-            id: 'famine', speaker: 'Alaric', portrait: '👴', text: 'Signore, non abbiamo più cibo!',
-            options: [
-                { text: 'Compra cibo (50 Oro)', resultText: 'Cibo acquistato.', effect: (s) => ({ resources: { ...s.resources, gold: s.resources.gold - 50, food: 100 } }) },
-                { text: 'Lasciali soffrire', resultText: 'Il popolo è furioso.', effect: (s) => ({ population: { ...s.population, happiness: s.population.happiness - 20 } }) }
-            ]
-        };
+    // Debt & Inflation
+    if (state.debt > 0) {
+        const interest = state.debt * 0.05; // 5% daily interest
+        nextResources.gold -= interest;
     }
+    if (nextResources.gold > 5000) state.inflation += 0.001;
 
-    return { ...state, time: nextTime, resources: nextResources, population: nextPop, activeDialogue: nextDialogue };
+    // Happiness & Social
+    let happiness = state.population.happiness;
+    if (nextResources.food <= 0) happiness -= 5;
+    if (nextHealth < 50) happiness -= 2;
+    
+    return { ...state, buildings: nextBuildings, resources: nextResources, population: { ...state.population, health: nextHealth, happiness: Math.max(0, Math.min(100, happiness)) }, time: nextTime };
   };
 
-  const buildBuilding = (type: BuildingType, x: number, y: number) => {
-    const data = BUILDINGS[type];
-    const canAfford = Object.entries(data.cost).every(([r, a]) => gameState.resources[r as keyof Resources] >= (a as number));
-    const isOccupied = gameState.buildings.some(b => b.x === x && b.y === y);
-    const nodeOk = !data.requiresNode || gameState.resourceNodes.some(n => n.type === data.requiresNode && n.x === x && n.y === y);
-    const mountainCheck = !gameState.resourceNodes.some(n => n.type === 'mountain' && n.x === x && n.y === y);
+  const toggleLaw = (id: string) => {
+      setGameState(prev => {
+          const law = prev.laws.find(l => l.id === id);
+          if (!law || (!law.active && prev.resources.prestige < law.prestigeCost)) return prev;
+          
+          // Apply faction impact
+          const nextFactions = prev.factions.map(f => {
+              if (id === 'forced_labor' && f.type === 'clergy') return { ...f, favor: f.favor - 10 };
+              if (id === 'tithe' && f.type === 'merchants') return { ...f, favor: f.favor - 15 };
+              if (id === 'conscription' && f.type === 'military') return { ...f, favor: f.favor + 10 };
+              return f;
+          });
 
-    if (canAfford && !isOccupied && nodeOk && mountainCheck) {
-        setGameState(prev => {
-            const nr = { ...prev.resources };
-            Object.entries(data.cost).forEach(([r, a]) => nr[r as keyof Resources] -= (a as number));
-            return { ...prev, resources: nr, buildings: [...prev.buildings, { id: Math.random().toString(), type, x, y, level: 1, assignedWorkers: 0 }] };
-        });
-    }
+          return {
+              ...prev,
+              resources: { ...prev.resources, prestige: law.active ? prev.resources.prestige : prev.resources.prestige - law.prestigeCost },
+              laws: prev.laws.map(l => l.id === id ? { ...l, active: !l.active } : l),
+              factions: nextFactions
+          };
+      });
   };
 
-  const resolveDialogue = (idx: number) => {
-      if (!gameState.activeDialogue) return;
-      const opt = gameState.activeDialogue.options[idx];
-      setGameState(prev => ({ ...prev, ...opt.effect(prev), activeDialogue: null, lastDialogueResult: opt.resultText }));
-      setTimeout(() => setGameState(prev => ({ ...prev, lastDialogueResult: null })), 3000);
-  };
-
-  return { 
-      gameState, buildBuilding, resolveDialogue,
+  return {
+      gameState, toggleLaw,
+      buildBuilding: (type: BuildingType, x: number, y: number) => {
+          const data = BUILDINGS[type];
+          if (Object.entries(data.cost).every(([r, a]) => gameState.resources[r as keyof Resources] >= (a as number))) {
+              setGameState(prev => {
+                  const nr = { ...prev.resources };
+                  Object.entries(data.cost).forEach(([r, a]) => nr[r as keyof Resources] -= (a as number));
+                  return { ...prev, resources: nr, buildings: [...prev.buildings, { id: Math.random().toString(), type, x, y, level: 1, assignedWorkers: 0, efficiencyBonus: 0, condition: 100 }] };
+              });
+          }
+      },
       assignWorker: (id: string, amt: number) => {
           setGameState(prev => ({
               ...prev,
               buildings: prev.buildings.map(b => b.id === id ? { ...b, assignedWorkers: Math.max(0, Math.min(BUILDINGS[b.type].maxWorkers, b.assignedWorkers + amt)) } : b)
           }));
       },
-      resetGame: () => { 
-          localStorage.removeItem(SAVE_KEY); 
-          window.location.reload(); 
-      } 
+      resolveDialogue: (idx: number) => {},
+      dispatchCaravan: (k: any, r: any, a: any) => {},
+      resetGame: () => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }
   };
 }

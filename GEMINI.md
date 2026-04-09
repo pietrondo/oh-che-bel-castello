@@ -1,17 +1,22 @@
-# oh che bel castello - Project Standards
+# oh che bel castello - Technical Documentation
 
-## 🏗️ Architecture
-- **State Management**: React `useState` hooks with a custom `useGameEngine` hook for game logic loops.
-- **Game Loop**: `requestAnimationFrame` based tick system (1000ms per tick).
-- **Persistence**: `localStorage` automatic serialization on state change.
-- **Visuals**: Vanilla CSS with CSS Variables for theme consistency and grid-based map rendering.
+## 🏗️ Architecture & Engine
+- **Core Loop**: Tick-based system (1s) using `requestAnimationFrame`.
+- **Weather Engine**: Dynamic states (Clear, Rain, Storm, Snow) affecting multipliers globally.
+- **Logistics**: Physical caravan entities with progress tracking and status management.
+- **Infrastructure**: Proximity-based efficiency bonuses (Roads) and health thresholds (Wells).
 
-## 📏 Standards
-- **Naming**: camelCase for variables/functions, PascalCase for components/types.
-- **Typing**: Strict TypeScript. Use `import type` for type-only imports to comply with `verbatimModuleSyntax`.
-- **Logic**: Decouple game logic (mechanics, production, social growth) from UI components where possible.
-- **Icons**: Emoji-based placeholders for assets to maintain a lightweight footprint while ensuring visual clarity.
+## 💎 UI/UX Design System
+- **Side Navigation**: Vertical layout for optimal screen utilization.
+- **Categorized Sidebar**: Building definitions grouped by logical function to reduce cognitive load.
+- **Semantic Feedback**: Red/Green color coding for affordability and resource danger states.
+- **Parchment Theme**: Extensive use of CSS variables and textures for medieval immersion.
 
-## 🗺️ Map Generation
-- Procedural generation occurs at `INITIAL_STATE` or on `resetGame`.
-- Map world size is decoupled from viewport size to support scrolling.
+## ⚖️ Social & Political Logic
+- **Social Classes**: Multi-tiered population (Peasants, Citizens, Nobles) with distinct consumption/tax profiles.
+- **Faction System**: Relational favor tracking for Merchants, Clergy, and Military.
+- **Legal System**: Global law modifiers with prestige costs and faction impacts.
+
+## 💾 State Persistence
+- **Serialization**: Automated `localStorage` updates per tick.
+- **Versioning**: Save keys are versioned to prevent state corruption across updates.
