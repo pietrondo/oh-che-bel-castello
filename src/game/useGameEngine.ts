@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import type { GameState, BuildingType, Resources, Dialogue, Sovereign, SovereignTrait, Law } from './types';
-import { INITIAL_STATE, BUILDINGS } from './constants';
+import type { GameState, BuildingType, Resources } from './types';
+import { INITIAL_STATE, BUILDINGS, generateNodes } from './constants';
 
 const TICK_RATE = 1000;
-const SAVE_KEY = 'feudal_lord_dynasty_v1';
+const SAVE_KEY = 'feudal_lord_research_v1';
 
 export function useGameEngine() {
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -12,9 +12,9 @@ export function useGameEngine() {
       try {
         const parsed = JSON.parse(saved);
         return { ...parsed, activeDialogue: null };
-      } catch (e) { return INITIAL_STATE; }
+      } catch (e) { return { ...INITIAL_STATE, resourceNodes: generateNodes() }; }
     }
-    return INITIAL_STATE;
+    return { ...INITIAL_STATE, resourceNodes: generateNodes() };
   });
 
   const lastTickRef = useRef<number>(0);
@@ -40,96 +40,83 @@ export function useGameEngine() {
     if (state.activeDialogue) return state;
 
     const nextTime = { ...state.time, tick: state.time.tick + 1 };
-    let nextSovereign = { ...state.sovereign };
-    let nextHeir = state.heir ? { ...state.heir } : null;
-    
-    // Time & Aging
     if (nextTime.tick >= 10) {
-      nextTime.tick = 0;
-      nextTime.day += 1;
-      if (nextTime.day > 30) {
-        nextTime.day = 1;
-        nextTime.month += 1;
-        if (nextTime.month > 12) { 
-            nextTime.month = 1; nextTime.year += 1; 
-            nextSovereign.age += 1; // Sovereign ages every year
-            if (nextHeir) nextHeir.age += 1;
-        }
-      }
-    }
-
-    // Death & Succession
-    if (nextSovereign.age > 60 + Math.random() * 20) {
-        if (nextHeir) {
-            nextSovereign = { ...nextHeir, age: nextHeir.age };
-            nextHeir = { name: `Principe ${nextSovereign.name.split(' ')[1]} II`, age: 0, traits: ['Just'], portrait: '👶' };
-        }
+      nextTime.tick = 0; nextTime.day += 1;
+      if (nextTime.day > 30) { nextTime.day = 1; nextTime.month += 1; if (nextTime.month > 12) { nextTime.month = 1; nextTime.year += 1; } }
     }
 
     const nextResources = { ...state.resources };
-    const hasSerfdom = state.laws.find(l => l.id === 'serfdom')?.active;
-    const hasDivineRight = state.laws.find(l => l.id === 'divine_right')?.active;
+    
+    // Tech Check
+    const hasAgri3 = state.technologies.find(t => t.id === 'agriculture_3')?.unlocked;
+    const hasMed = state.technologies.find(t => t.id === 'anatomy')?.unlocked;
+    const hasArmor = state.technologies.find(t => t.id === 'heavy_armor')?.unlocked;
 
-    // Production Chains
+    const productivityMod = (state.population.happiness / 100) * (state.population.health / 100);
+    
     state.buildings.forEach((b) => {
       const data = BUILDINGS[b.type];
       const workRatio = data.maxWorkers > 0 ? b.assignedWorkers / data.maxWorkers : 1;
       if (workRatio <= 0 && data.maxWorkers > 0) return;
 
-      // Consumption Check
-      let canProduce = true;
-      if (data.consumption) {
-          canProduce = Object.entries(data.consumption).every(([res, amt]) => nextResources[res as keyof Resources] >= (amt as number) * workRatio);
+      if (data.production) {
+        Object.entries(data.production).forEach(([res, amount]) => {
+          let final = (amount as number) * workRatio * productivityMod;
+          if (res === 'grain' && hasAgri3) final *= 1.3;
+          nextResources[res as keyof Resources] += final;
+        });
       }
-
-      if (canProduce) {
-          if (data.consumption) {
-              Object.entries(data.consumption).forEach(([res, amt]) => {
-                  nextResources[res as keyof Resources] -= (amt as number) * workRatio;
-              });
-          }
-          if (data.production) {
-              Object.entries(data.production).forEach(([res, amt]) => {
-                  let final = (amt as number) * workRatio;
-                  if (res === 'grain' && hasSerfdom) final *= 1.5;
-                  if (res === 'piety' && hasDivineRight) final += 2;
-                  nextResources[res as keyof Resources] += final;
-              });
-          }
+      if (data.consumption) {
+          Object.entries(data.consumption).forEach(([res, amount]) => {
+              nextResources[res as keyof Resources] -= (amount as number) * workRatio;
+          });
       }
     });
 
-    // Auto-consume bread for food
-    if (nextResources.bread > 0) {
-        const consumed = Math.min(nextResources.bread, state.population.total * 0.5);
-        nextResources.bread -= consumed;
-        nextResources.food += consumed * 2; // Bread is more efficient than raw food
-    }
+    // Consumption & Health
+    const foodCons = (state.population.peasants * 0.4) + (state.population.citizens * 0.6) + (state.population.nobles * 1.0);
+    nextResources.food = Math.max(0, nextResources.food - foodCons);
+    
+    let nextHealth = state.population.health;
+    if (hasMed) nextHealth = Math.min(100, nextHealth + 0.1);
 
-    return { ...state, time: nextTime, sovereign: nextSovereign, heir: nextHeir, resources: nextResources };
+    let defense = 25;
+    if (hasArmor) defense += 50;
+
+    return { ...state, resources: nextResources, population: { ...state.population, health: nextHealth }, defenseRating: defense, time: nextTime };
   };
 
-  const toggleLaw = (id: string) => {
+  const unlockTech = (id: string) => {
       setGameState(prev => {
-          const law = prev.laws.find(l => l.id === id);
-          if (!law || (!law.active && prev.resources.prestige < law.cost)) return prev;
-          return {
-              ...prev,
-              resources: { ...prev.resources, prestige: law.active ? prev.resources.prestige : prev.resources.prestige - law.cost },
-              laws: prev.laws.map(l => l.id === id ? { ...l, active: !l.active } : l)
-          };
+          const tech = prev.technologies.find(t => t.id === id);
+          if (tech && !tech.unlocked && prev.resources.knowledge >= tech.cost) {
+              return {
+                  ...prev,
+                  resources: { ...prev.resources, knowledge: prev.resources.knowledge - tech.cost },
+                  technologies: prev.technologies.map(t => t.id === id ? { ...t, unlocked: true } : t)
+              };
+          }
+          return prev;
       });
   };
 
   return {
-      gameState, toggleLaw,
+      gameState, unlockTech,
       buildBuilding: (type: BuildingType, x: number, y: number) => {
           const data = BUILDINGS[type];
-          setGameState(prev => ({
-              ...prev,
-              resources: { ...prev.resources, wood: prev.resources.wood - (data.cost.wood || 0), stone: prev.resources.stone - (data.cost.stone || 0) },
-              buildings: [...prev.buildings, { id: Math.random().toString(), type, x, y, level: 1, assignedWorkers: 0, efficiencyBonus: 0 }]
-          }));
+          if (!data || !data.cost) return;
+          const canAfford = Object.entries(data.cost).every(([res, amount]) => gameState.resources[res as keyof Resources] >= amount);
+          if (canAfford) {
+              const newResources = { ...gameState.resources };
+              Object.entries(data.cost).forEach(([res, amount]) => {
+                  newResources[res as keyof Resources] -= amount;
+              });
+              setGameState(prev => ({
+                  ...prev,
+                  resources: newResources,
+                  buildings: [...prev.buildings, { id: Math.random().toString(), type, x, y, level: 1, assignedWorkers: 0, efficiencyBonus: 0, condition: 100 }]
+              }));
+          }
       },
       assignWorker: (id: string, amt: number) => {
           setGameState(prev => ({
