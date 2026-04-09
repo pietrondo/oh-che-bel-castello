@@ -1,54 +1,18 @@
-// BUILD-TRACKER-TYPES-11
+// BUILD-TRACKER-TYPES-12
 export type ResourceType = 
   | 'wood' | 'stone' | 'food' | 'gold' | 'iron' | 'tools' | 'prestige' | 'knowledge' | 'piety'
-  | 'beer' | 'clothes' | 'wine' | 'jewelry';
+  | 'beer' | 'clothes' | 'wine' | 'jewelry'
+  | 'grain' | 'flour' | 'bread' | 'wool' | 'fabric';
 
-export type Resources = {
-  wood: number; stone: number; food: number; gold: number; iron: number; tools: number; 
-  prestige: number; knowledge: number; piety: number;
-  beer: number; clothes: number; wine: number; jewelry: number;
-};
+export type Resources = Record<ResourceType, number>;
 
-export type FactionType = 'merchants' | 'clergy' | 'military';
+export type SovereignTrait = 'Just' | 'Cruel' | 'Greedy' | 'Scholar' | 'Mad';
 
-export interface Faction {
-  type: FactionType;
+export interface Sovereign {
   name: string;
-  favor: number; // -100 to 100
-  bonus: string;
-}
-
-export type WeatherType = 'Clear' | 'Rain' | 'Storm' | 'Snow';
-
-export interface Caravan {
-  id: string;
-  targetKingdomId: string;
-  resourceType: ResourceType;
-  amount: number;
-  progress: number;
-  status: 'Outgoing' | 'Returning' | 'Plundered';
-  x: number;
-  y: number;
-}
-
-export type NodeType = 'forest' | 'stone_deposit' | 'iron_deposit' | 'mountain' | 'river';
-export interface ResourceNode { id: string; type: NodeType; x: number; y: number; amount?: number; }
-
-export type BuildingType = 
-  | 'house' | 'farm' | 'lumber_mill' | 'stone_quarry' | 'granary' 
-  | 'barracks' | 'blacksmith' | 'iron_mine' | 'market' | 'keep' | 'manor' | 'church' | 'university' | 'cathedral'
-  | 'road' | 'wall' | 'tower' | 'well'
-  | 'brewery' | 'tailor' | 'winery' | 'jeweler';
-
-export interface Building {
-  id: string;
-  type: BuildingType;
-  x: number;
-  y: number;
-  level: number;
-  assignedWorkers: number;
-  efficiencyBonus: number;
-  condition: number;
+  age: number;
+  traits: SovereignTrait[];
+  portrait: string;
 }
 
 export interface Law {
@@ -56,30 +20,42 @@ export interface Law {
   name: string;
   description: string;
   active: boolean;
-  prestigeCost: number;
-  pietyRequirement: number;
+  cost: number; // prestige
+  effect: string;
+}
+
+export type BuildingType = 
+  | 'house' | 'farm' | 'lumber_mill' | 'stone_quarry' | 'granary' 
+  | 'barracks' | 'blacksmith' | 'iron_mine' | 'market' | 'keep' | 'manor' | 'church' | 'university' | 'cathedral'
+  | 'road' | 'wall' | 'tower' | 'well'
+  | 'brewery' | 'tailor' | 'winery' | 'jeweler'
+  | 'windmill' | 'bakery' | 'sheep_farm' | 'weaving_mill';
+
+export interface Building {
+  id: string;
+  type: BuildingType;
+  x: number; y: number;
+  assignedWorkers: number;
+  efficiencyBonus: number;
 }
 
 export interface GameState {
   resources: Resources;
-  time: { day: number; month: number; year: number; season: Season; tick: number };
-  weather: WeatherType;
+  time: { day: number; month: number; year: number; season: string; tick: number };
+  sovereign: Sovereign;
+  heir: Sovereign | null;
   buildings: Building[];
-  resourceNodes: ResourceNode[];
-  caravans: Caravan[];
-  factions: Faction[];
-  debt: number;
-  inflation: number; // 1.0 = base
-  population: { peasants: number; citizens: number; nobles: number; happiness: number; health: number; total: number; };
-  technologies: any[];
-  marketPrices: any[];
-  kingdoms: any[];
+  resourceNodes: any[];
   laws: Law[];
+  factions: any[];
   activeDialogue: any | null;
-  lastDialogueResult: string | null;
   defenseRating: number;
   threatLevel: number;
   taxRate: number;
+  inflation: number;
+  debt: number;
+  population: { peasants: number; citizens: number; nobles: number; total: number; happiness: number; health: number };
+  weather: string;
+  caravans: any[];
+  lastDialogueResult: string | null;
 }
-
-export type Season = 'Spring' | 'Summer' | 'Autumn' | 'Winter';

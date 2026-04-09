@@ -6,20 +6,18 @@ import type { BuildingType, Resources } from './game/types';
 
 const GRID_SIZE = 50;
 
-// Categorie per la UX della Sidebar
 const BUILDING_CATEGORIES = {
-  'Infrastrutture': ['house', 'well', 'road', 'wall', 'tower', 'granary'],
-  'Estrazione': ['farm', 'lumber_mill', 'stone_quarry', 'iron_mine'],
-  'Produzione': ['blacksmith', 'brewery', 'tailor', 'jeweler'],
-  'Istituzioni': ['keep', 'barracks', 'market', 'church', 'university', 'cathedral']
+  'Base': ['house', 'farm', 'lumber_mill', 'stone_quarry', 'well', 'road'],
+  'Industria': ['windmill', 'bakery', 'sheep_farm', 'weaving_mill', 'blacksmith', 'iron_mine'],
+  'Corte & Fede': ['keep', 'barracks', 'church', 'university', 'cathedral', 'manor']
 };
 
 function App() {
-  const { gameState, buildBuilding, assignWorker, toggleLaw, resetGame, resolveDialogue } = useGameEngine();
-  const [activeTab, setActiveTab] = useState<'map' | 'laws' | 'factions' | 'economy'>('map');
+  const { gameState, buildBuilding, assignWorker, toggleLaw, resetGame } = useGameEngine();
+  const [activeTab, setActiveTab] = useState<'map' | 'court' | 'laws'>('map');
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingType | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [activeCategory, setActiveCategory] = useState<string>('Infrastrutture');
+  const [activeCategory, setActiveCategory] = useState<string>('Base');
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -32,52 +30,33 @@ function App() {
       return Object.entries(cost).every(([r, a]) => gameState.resources[r as keyof Resources] >= (a as number));
   };
 
-  const getBuildingIcon = (type: string) => {
-    switch(type) {
-      case 'road': return '🛣️'; case 'wall': return '🧱'; case 'well': return '⛲'; case 'tower': return '🏰';
-      default: return '';
-    }
-  }
-
   return (
     <div className="game-container">
-      {/* HUD PREMIUM */}
+      {/* HUD AGGIORNATO CON FILIERA CIBO */}
       <div className="hud">
-        <div className="hud-section primary-res">
-          <div className="res-badge" title="Legno">🪵 <span>{Math.floor(gameState.resources.wood)}</span></div>
-          <div className="res-badge" title="Pietra">🪨 <span>{Math.floor(gameState.resources.stone)}</span></div>
-          <div className="res-badge" title="Ferro">⛓️ <span>{Math.floor(gameState.resources.iron)}</span></div>
-          <div className={`res-badge ${gameState.resources.food < 50 ? 'danger' : ''}`} title="Cibo">
-            🌾 <span>{Math.floor(gameState.resources.food)}</span>
-          </div>
-          <div className="res-badge" title="Oro">💰 <span>{Math.floor(gameState.resources.gold)}</span></div>
+        <div className="hud-section">
+          <div className="res-badge">🪵 {Math.floor(gameState.resources.wood)}</div>
+          <div className="res-badge">🪨 {Math.floor(gameState.resources.stone)}</div>
+          <div className="res-badge">💰 {Math.floor(gameState.resources.gold)}</div>
         </div>
-
-        <div className="hud-section secondary-res">
-          <div className="res-badge" title="Prestigio">👑 <span style={{color: 'var(--color-gold)'}}>{Math.floor(gameState.resources.prestige)}</span></div>
-          <div className="res-badge" title="Pietà">🙏 <span style={{color: '#ce93d8'}}>{Math.floor(gameState.resources.piety)}</span></div>
-          <div className="res-badge" title="Conoscenza">📘 <span style={{color: '#81d4fa'}}>{Math.floor(gameState.resources.knowledge)}</span></div>
+        <div className="hud-section">
+          <div className="res-badge">🌾 {Math.floor(gameState.resources.grain)}</div>
+          <div className="res-badge">⚪ {Math.floor(gameState.resources.flour)}</div>
+          <div className="res-badge">🍞 {Math.floor(gameState.resources.bread)}</div>
+          <div className="res-badge">🥩 {Math.floor(gameState.resources.food)}</div>
         </div>
-
-        <div className="hud-section status-res">
-          <div className={`res-badge ${gameState.population.health < 50 ? 'danger' : ''}`} title="Salute">❤️ <span>{Math.floor(gameState.population.health)}%</span></div>
-          <div className={`res-badge ${gameState.population.happiness < 50 ? 'danger' : ''}`} title="Felicità">😊 <span>{Math.floor(gameState.population.happiness)}%</span></div>
-          <div className="res-badge" title="Popolazione">👥 <span>{gameState.population.total}</span></div>
-          <div className="res-badge" title="Difesa">🛡️ <span>{Math.floor(gameState.defenseRating)}</span></div>
-        </div>
-
-        <div className="hud-section time-res">
-          <div className="res-badge">📅 <span>G{gameState.time.day} M{gameState.time.month} Y{gameState.time.year}</span></div>
+        <div className="hud-section">
+          <div className="res-badge">👑 {Math.floor(gameState.resources.prestige)}</div>
+          <div className="res-badge">🛡️ {Math.floor(gameState.defenseRating)}</div>
+          <div className="res-badge">📅 Anno {gameState.time.year}</div>
         </div>
       </div>
 
       <div className="main-layout">
-        {/* NAVIGAZIONE VERTICALE */}
         <div className="game-nav-side">
-          <button className={activeTab === 'map' ? 'active' : ''} onClick={() => setActiveTab('map')}>🗺️ Mappa</button>
-          <button className={activeTab === 'laws' ? 'active' : ''} onClick={() => setActiveTab('laws')}>📜 Editti</button>
-          <button className={activeTab === 'factions' ? 'active' : ''} onClick={() => setActiveTab('factions')}>🤝 Gilde</button>
-          <button className={activeTab === 'economy' ? 'active' : ''} onClick={() => setActiveTab('economy')}>⚖️ Tesoro</button>
+          <button className={activeTab === 'map' ? 'active' : ''} onClick={() => setActiveTab('map')}>🗺️ Regno</button>
+          <button className={activeTab === 'court' ? 'active' : ''} onClick={() => setActiveTab('court')}>🏛️ Corte</button>
+          <button className={activeTab === 'laws' ? 'active' : ''} onClick={() => setActiveTab('laws')}>📜 Leggi</button>
         </div>
 
         <div className="content-area">
@@ -85,15 +64,9 @@ function App() {
             <div className="map-view">
               <div className="game-map-wrapper">
                 <div className="map-world" style={{ width: 2500, height: 2500 }} onMouseMove={handleMouseMove} onClick={() => selectedBuilding && buildBuilding(selectedBuilding, mousePos.x, mousePos.y)}>
-                  {gameState.resourceNodes.map(n => (
-                    <div key={n.id} className={`node ${n.type}`} style={{ left: n.x * GRID_SIZE, top: n.y * GRID_SIZE }}>
-                      {n.type === 'forest' ? '🌲' : n.type === 'stone_deposit' ? '🪨' : n.type === 'iron_deposit' ? '⛓️' : n.type === 'mountain' ? '⛰️' : '💧'}
-                    </div>
-                  ))}
-                  
+                  {gameState.resourceNodes.map(n => <div key={n.id} className={`node ${n.type}`} style={{ left: n.x * GRID_SIZE, top: n.y * GRID_SIZE }} />)}
                   {gameState.buildings.map(b => (
-                    <div key={b.id} className={`building ${b.type} ${b.efficiencyBonus > 0 ? 'boosted' : ''}`} style={{ left: b.x * GRID_SIZE, top: b.y * GRID_SIZE }}>
-                      {getBuildingIcon(b.type)}
+                    <div key={b.id} className={`building ${b.type}`} style={{ left: b.x * GRID_SIZE, top: b.y * GRID_SIZE }}>
                       <div className="b-label">{BUILDINGS[b.type].name}</div>
                       {BUILDINGS[b.type].maxWorkers > 0 && (
                         <div className="w-ctrl">
@@ -104,145 +77,74 @@ function App() {
                       )}
                     </div>
                   ))}
-                  
-                  {selectedBuilding && (
-                    <div className={`ghost ${canAfford(BUILDINGS[selectedBuilding].cost) ? 'valid' : 'invalid'}`} style={{ left: mousePos.x * GRID_SIZE, top: mousePos.y * GRID_SIZE }}>
-                      {getBuildingIcon(selectedBuilding)}
-                    </div>
-                  )}
+                  {selectedBuilding && <div className={`ghost ${canAfford(BUILDINGS[selectedBuilding].cost) ? 'valid' : 'invalid'}`} style={{ left: mousePos.x * GRID_SIZE, top: mousePos.y * GRID_SIZE }} />}
                 </div>
               </div>
               
-              {/* SIDEBAR COSTRUZIONI MIGLIORATA */}
               <div className="map-sidebar">
-                 <h2 className="sidebar-title">Architettura</h2>
-                 
+                 <h2 className="sidebar-title">Costruzioni</h2>
                  <div className="category-tabs">
                    {Object.keys(BUILDING_CATEGORIES).map(cat => (
-                     <button key={cat} className={activeCategory === cat ? 'active' : ''} onClick={() => setActiveCategory(cat)}>
-                       {cat}
-                     </button>
+                     <button key={cat} className={activeCategory === cat ? 'active' : ''} onClick={() => setActiveCategory(cat)}>{cat}</button>
                    ))}
                  </div>
-
                  <div className="b-list scrollable">
                    {BUILDING_CATEGORIES[activeCategory as keyof typeof BUILDING_CATEGORIES].map(bKey => {
                      const b = BUILDINGS[bKey as BuildingType];
-                     if (!b) return null;
                      const affordable = canAfford(b.cost);
-
                      return (
                        <div key={b.type} className={`b-card ${selectedBuilding === b.type ? 'sel' : ''} ${!affordable ? 'disabled' : ''}`} onClick={() => affordable && setSelectedBuilding(b.type)}>
-                         <div className="b-card-header">
-                            <strong>{b.name}</strong>
-                            {b.maxWorkers > 0 && <span className="b-workers">👥 {b.maxWorkers}</span>}
-                         </div>
+                         <strong>{b.name}</strong>
                          <p className="b-desc">{b.description}</p>
                          <div className="b-cost-row">
-                           {Object.entries(b.cost).map(([r, a]) => {
-                             const hasEnough = gameState.resources[r as keyof Resources] >= (a as number);
-                             return <span key={r} className={`cost-item ${!hasEnough ? 'cost-missing' : ''}`}>{a} {r.substring(0,2).toUpperCase()}</span>
-                           })}
+                           {Object.entries(b.cost).map(([r, a]) => <span key={r} className="cost-item">{a} {r[0].toUpperCase()}</span>)}
                          </div>
                        </div>
                      );
                    })}
                  </div>
-                 
-                 <div className="sidebar-footer">
-                    <button className="danger-btn" onClick={resetGame}>Resetta Regno</button>
-                 </div>
+                 <button className="reset-btn" onClick={resetGame}>Nuova Partita</button>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'court' && (
+            <div className="panel-view">
+              <h2 className="panel-title">Corte di {gameState.sovereign.name}</h2>
+              <div className="sovereign-card">
+                <div className="portrait-large">{gameState.sovereign.portrait}</div>
+                <div className="sovereign-details">
+                  <h3>{gameState.sovereign.name}</h3>
+                  <p>Età: {gameState.sovereign.age} anni</p>
+                  <p>Tratti: {gameState.sovereign.traits.join(', ')}</p>
+                </div>
+              </div>
+              {gameState.heir && (
+                <div className="heir-card">
+                  <h4>Erede al Trono: {gameState.heir.name}</h4>
+                  <p>Età: {gameState.heir.age} anni | Tratti: {gameState.heir.traits.join(', ')}</p>
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === 'laws' && (
             <div className="panel-view">
-              <h2 className="panel-title">Editti Reali</h2>
-              <p className="panel-subtitle">Promulga leggi per plasmare la società, ma attento alle reazioni delle Gilde.</p>
+              <h2 className="panel-title">Editti Regi</h2>
               <div className="laws-grid">
                 {gameState.laws.map(l => (
                   <div key={l.id} className={`law-card ${l.active ? 'active' : ''}`}>
-                    <div className="law-header"><h3>{l.name}</h3></div>
-                    <div className="law-body">
-                      <p>{l.description}</p>
-                      <p className="law-cost">Costo: <strong>{l.prestigeCost} 👑</strong></p>
-                    </div>
-                    <button className={`action-btn ${l.active ? 'btn-active' : ''}`} onClick={() => toggleLaw(l.id)}>
-                      {l.active ? 'Revoca Editto' : 'Proclama Editto'}
-                    </button>
+                    <h3>{l.name}</h3>
+                    <p>{l.description}</p>
+                    <p>Costo: {l.cost} 👑</p>
+                    <button className="action-btn" onClick={() => toggleLaw(l.id)}>{l.active ? 'Abroga' : 'Proclama'}</button>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'factions' && (
-            <div className="panel-view">
-              <h2 className="panel-title">Gilde e Fazioni</h2>
-              <p className="panel-subtitle">Le tue decisioni politiche influenzano il favore delle potenti caste del regno.</p>
-              <div className="factions-grid">
-                {gameState.factions.map(f => (
-                  <div key={f.type} className="faction-card">
-                    <div className="faction-header"><h3>{f.name}</h3></div>
-                    <div className="faction-body">
-                      <div className="favor-bar-container">
-                          <div className="favor-fill" style={{ width: `${(f.favor + 100) / 2}%`, backgroundColor: f.favor < -20 ? '#f44336' : f.favor > 20 ? '#4caf50' : '#ff9800' }}></div>
-                      </div>
-                      <p className="favor-val">Favore: <span style={{color: f.favor < 0 ? '#f44336' : '#4caf50'}}>{f.favor}</span></p>
-                      <p className="faction-bonus">Bonus: <em>{f.bonus}</em></p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'economy' && (
-            <div className="panel-view">
-              <h2 className="panel-title">Tesoro e Beni di Lusso</h2>
-              <div className="econ-dashboard">
-                <div className="econ-card macro">
-                  <h3>Macroeconomia</h3>
-                  <div className="econ-stat-row"><span>Debito Reale:</span> <span className="danger-text">{Math.floor(gameState.debt)} 💰</span></div>
-                  <div className="econ-stat-row"><span>Inflazione:</span> <span className={gameState.inflation > 1.1 ? 'danger-text' : 'success-text'}>{gameState.inflation.toFixed(2)}x</span></div>
-                  <div className="econ-stat-row"><span>Tassazione:</span> <span>{Math.floor(gameState.taxRate * 100)}%</span></div>
-                </div>
-                <div className="econ-card luxury">
-                  <h3>Beni di Lusso (Consumo)</h3>
-                  <p className="hint">Essenziali per la felicità di Cittadini e Nobili.</p>
-                  <div className="lux-grid">
-                    <div className="lux-item"><div className="lux-icon">🍺</div><div className="lux-val">{Math.floor(gameState.resources.beer)}</div><span>Birra</span></div>
-                    <div className="lux-item"><div className="lux-icon">👗</div><div className="lux-val">{Math.floor(gameState.resources.clothes)}</div><span>Vestiti</span></div>
-                    <div className="lux-item"><div className="lux-icon">🍷</div><div className="lux-val">{Math.floor(gameState.resources.wine)}</div><span>Vino</span></div>
-                    <div className="lux-item"><div className="lux-icon">💎</div><div className="lux-val">{Math.floor(gameState.resources.jewelry)}</div><span>Gioielli</span></div>
-                  </div>
-                </div>
               </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* DIALOGHI */}
-      {gameState.activeDialogue && (
-        <div className="dialogue-overlay">
-          <div className="dialogue-box">
-            <div className="dialogue-header">
-              <div className="portrait">{gameState.activeDialogue.portrait}</div>
-              <div className="speaker-name">{gameState.activeDialogue.speaker}</div>
-            </div>
-            <p className="dialogue-text">{gameState.activeDialogue.text}</p>
-            <div className="dialogue-options">
-              {gameState.activeDialogue.options.map((opt, idx) => (
-                <button key={idx} className="dialogue-opt-btn" onClick={() => resolveDialogue(idx)}>{opt.text}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {gameState.lastDialogueResult && <div className="dialogue-result-toast">{gameState.lastDialogueResult}</div>}
     </div>
   );
 }
