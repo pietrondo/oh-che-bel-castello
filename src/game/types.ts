@@ -3,6 +3,8 @@ export type ResourceType =
   | 'wood' | 'stone' | 'food' | 'gold' | 'iron' | 'tools' | 'prestige' | 'knowledge' | 'piety'
   | 'beer' | 'clothes' | 'wine' | 'jewelry' | 'grain' | 'flour' | 'bread' | 'wool' | 'fabric';
 
+export type SeasonType = 'spring' | 'summer' | 'autumn' | 'winter';
+
 export type Resources = Record<ResourceType, number>;
 
 export interface Technology {
@@ -44,17 +46,67 @@ export interface ResourceNode {
   amount: number;
 }
 
+export interface Kingdom {
+  name: string;
+  relations: number;
+  status: 'peace' | 'war' | 'alliance' | 'trade';
+  strength: number;
+  activeMission?: DiplomaticMission;
+}
+
+export interface DiplomaticMission {
+  id: string;
+  kingdom: string;
+  type: 'trade' | 'military' | 'cultural' | 'aid';
+  description: string;
+  requirements: Partial<Resources>;
+  reward: { relations: number; resources?: Partial<Resources>; prestige?: number };
+  duration: number;
+  progress: number;
+}
+
+export interface GameEvent {
+  id: string;
+  title: string;
+  description: string;
+  type: 'positive' | 'negative' | 'neutral';
+  effect?: string;
+  turn?: number;
+}
+
+export type GameStatus = 'playing' | 'won' | 'lost';
+
+export interface GameSetup {
+  sovereignName: string;
+  dynastyName: string;
+  region: string;
+  difficulty: 'easy' | 'normal' | 'hard';
+}
+
 export interface GameState {
   resources: Resources;
-  time: { day: number; month: number; year: number; season: string; tick: number };
+  time: { day: number; month: number; year: number; season: SeasonType; tick: number };
   technologies: Technology[];
   buildings: Building[];
   resourceNodes: ResourceNode[];
-  population: { peasants: number; citizens: number; nobles: number; total: number; happiness: number; health: number };
+  population: { 
+    peasants: number; 
+    citizens: number; 
+    nobles: number; 
+    total: number; 
+    happiness: number; 
+    health: number;
+    unemployed: number;
+    housed: number;
+  };
   sovereign: Sovereign;
   heir: Sovereign;
   laws: Law[];
   factions: Faction[];
+  kingdoms: Kingdom[];
+  events: GameEvent[];
+  status: GameStatus;
+  endReason?: string;
   defenseRating: number;
   threatLevel: number;
   taxRate: number;
@@ -63,6 +115,7 @@ export interface GameState {
   activeDialogue: any | null;
   lastDialogueResult: string | null;
   weather: string;
+  setup?: GameSetup;
 }
 
 export interface Sovereign {
@@ -86,4 +139,5 @@ export interface Faction {
   name: string;
   favor: number;
   bonus: string;
+  effect?: { resource?: string; bonus?: number; event?: string };
 }

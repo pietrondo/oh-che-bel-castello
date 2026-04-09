@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BUILDINGS } from '../game/constants';
-import type { Building, BuildingType } from '../game/types';
+import { BUILDING_UPGRADES } from '../game/buildingUpgrades';
+import type { Building, BuildingType, Resources } from '../game/types';
 import type { ResourceNode } from '../game/types';
 
 interface MapWithEffectsProps {
@@ -9,8 +10,10 @@ interface MapWithEffectsProps {
   selectedBuilding: BuildingType | null;
   mousePos: { x: number; y: number };
   canAfford: boolean;
+  resources: Resources;
   onBuild: (type: BuildingType, x: number, y: number) => void;
   onAssignWorker: (id: string, delta: number) => void;
+  onUpgradeBuilding: (id: string) => void;
   onMouseMove: (pos: { x: number; y: number }) => void;
 }
 
@@ -22,10 +25,13 @@ export function MapWithEffects({
   selectedBuilding,
   mousePos,
   canAfford,
+  resources,
   onBuild,
   onAssignWorker,
+  onUpgradeBuilding,
   onMouseMove
 }: MapWithEffectsProps) {
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   return (
     <div className="game-map-wrapper">
       <div
@@ -54,40 +60,75 @@ export function MapWithEffects({
         
         {/* Buildings Layer */}
         <div className="layer-buildings">
-          {buildings.map(building => (
-            <div
-              key={building.id}
-              className={`building ${building.type}`}
-              style={{ 
-                left: building.x * GRID_SIZE, 
-                top: building.y * GRID_SIZE,
-                animationDelay: `${building.x * 10}ms`
-              }}
-            >
-              <div className="b-label">{BUILDINGS[building.type].name}</div>
-              {BUILDINGS[building.type].maxWorkers > 0 && (
-                <div className="w-ctrl">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAssignWorker(building.id, -1);
-                    }}
-                  >
-                    -
-                  </button>
-                  <span>{building.assignedWorkers}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAssignWorker(building.id, 1);
-                    }}
-                  >
-                    +
-                  </button>
+          {buildings.map(building => {
+            const upgrades = BUILDING_UPGRADES[building.type];
+            const currentUpgrade = upgrades[building.level - 1];
+            const nextLevel = building.level + 1;
+            const nextUpgrade = nextLevel <= 5 ? upgrades[nextLevel - 1] : null;
+            const canUpgrade = nextUpgrade?.cost && Object.entries(nextUpgrade.cost).every(
+              ([res, amount]) => resources[res as keyof Resources] >= amount
+            );
+            
+            return (
+              <div
+                key={building.id}
+                className={`building ${building.type} ${selectedBuildingId === building.id ? 'selected' : ''}`}
+                style={{ 
+                  left: building.x * GRID_SIZE, 
+                  top: building.y * GRID_SIZE,
+                  animationDelay: `${building.x * 10}ms`
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedBuildingId(building.id);
+                }}
+              >
+                <img 
+                  src={`/assets/buildings/${building.type}.png`} 
+                  alt={BUILDINGS[building.type].name}
+                  className="building-img"
+                />
+                <div className="b-label">
+                  {BUILDINGS[building.type].name}
+                  <span className="b-level">Lv.{building.level}</span>
                 </div>
-              )}
-            </div>
-          ))}
+                {BUILDINGS[building.type].maxWorkers > 0 && (
+                  <div className="w-ctrl">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAssignWorker(building.id, -1);
+                      }}
+                    >
+                      -
+                    </button>
+                    <span>{building.assignedWorkers}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAssignWorker(building.id, 1);
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
+                {nextUpgrade && selectedBuildingId === building.id && (
+                  <button
+                    className="btn-upgrade"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (canUpgrade) onUpgradeBuilding(building.id);
+                    }}
+                    disabled={!canUpgrade}
+                    title={nextUpgrade.description}
+                  >
+                    ⬆️
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
         
         {/* Ghost Placement Preview */}

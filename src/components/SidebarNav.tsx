@@ -10,9 +10,10 @@ interface SidebarNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   onReset: () => void;
+  onSave?: () => void;
 }
 
-export function SidebarNav({ activeTab, onTabChange, onReset }: SidebarNavProps) {
+export function SidebarNav({ activeTab, onTabChange, onReset, onSave }: SidebarNavProps) {
   const navItems: NavItem[] = [
     { id: 'map', label: 'Regno', icon: '🗺️' },
     { id: 'research', label: 'Ricerca', icon: '🧪' },
@@ -31,6 +32,20 @@ export function SidebarNav({ activeTab, onTabChange, onReset }: SidebarNavProps)
           {item.icon} {item.label}
         </button>
       ))}
+      {onSave && (
+        <button 
+          className="save-btn" 
+          onClick={onSave}
+          style={{
+            background: 'linear-gradient(135deg, #1976d2, #0d47a1)',
+            border: '2px solid #c9a227',
+            fontFamily: 'MedievalSharp',
+            fontWeight: 'bold'
+          }}
+        >
+          💾 Salva
+        </button>
+      )}
       <button className="reset-btn" onClick={onReset}>
         Nuova Partita
       </button>

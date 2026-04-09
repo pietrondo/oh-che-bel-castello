@@ -1,8 +1,22 @@
-import type { BuildingData, GameState, Resources, Law, Technology, Faction } from './types';
+import type { BuildingData, GameState, Resources, Law, Technology, Faction, SeasonType, GameSetup } from './types';
 
 export const INITIAL_RESOURCES: Resources = {
-  wood: 350, stone: 250, food: 600, gold: 600, iron: 0, tools: 25, prestige: 100, knowledge: 50, piety: 0,
+  wood: 400, stone: 300, food: 800, gold: 700, iron: 0, tools: 30, prestige: 100, knowledge: 60, piety: 0,
   beer: 0, clothes: 0, wine: 0, jewelry: 0, grain: 0, flour: 0, bread: 0, wool: 0, fabric: 0
+};
+
+const REGION_BONUSES: Record<string, Partial<Resources> & { happiness?: number }> = {
+  north: { stone: 100, iron: 20 },
+  south: { food: 150, grain: 100, wine: 30 },
+  east: { wood: 150, knowledge: 30 },
+  west: { gold: 150, food: 50 },
+  central: { wood: 50, stone: 50, food: 50, gold: 50, happiness: 5 }
+};
+
+const DIFFICULTY_MODIFIERS = {
+  easy: { resourceMultiplier: 1.5, negativeEventChance: 0.7 },
+  normal: { resourceMultiplier: 1.0, negativeEventChance: 1.0 },
+  hard: { resourceMultiplier: 0.75, negativeEventChance: 1.2 }
 };
 
 export const INITIAL_TECHS: Technology[] = [
@@ -11,6 +25,13 @@ export const INITIAL_TECHS: Technology[] = [
   { id: 'double_entry', name: 'Contabilità', description: 'Riduce l\'inflazione del 50%.', cost: 200, unlocked: false, category: 'Economy', icon: '⚖️' },
   { id: 'heavy_armor', name: 'Armature a Piastre', description: '+50 potenza difensiva fissa.', cost: 300, unlocked: false, category: 'Military', icon: '🛡️' },
   { id: 'theology', name: 'Teologia Avanzata', description: '+5 pietà/tick e sblocca Cattedrale.', cost: 250, unlocked: false, category: 'Social', icon: '⛪' },
+];
+
+export const SEASONS: { id: SeasonType; name: string; effects: { grain?: number; food?: number; happiness?: number; health?: number } }[] = [
+  { id: 'spring', name: 'Primavera', effects: { grain: 1.2, happiness: 5 } },
+  { id: 'summer', name: 'Estate', effects: { grain: 1.0, food: 5, health: 2 } },
+  { id: 'autumn', name: 'Autunno', effects: { grain: 1.5, food: 10, happiness: 3 } },
+  { id: 'winter', name: 'Inverno', effects: { grain: 0.5, food: -10, happiness: -5, health: -3 } },
 ];
 
 export const INITIAL_LAWS: Law[] = [
@@ -26,32 +47,32 @@ export const BUILDING_CATEGORIES: Record<string, string[]> = {
 };
 
 export const BUILDINGS: Record<string, BuildingData> = {
-  keep: { type: 'keep', name: 'Mastio Reale', description: 'Simbolo di potere.', cost: { gold: 500, stone: 300 }, production: { gold: 10, prestige: 2, knowledge: 1 }, populationProvided: 20, maxWorkers: 0 },
-  house: { type: 'house', name: 'Casa', description: 'Abitazione sudditi.', cost: { wood: 30 }, populationProvided: 8, maxWorkers: 0 },
-  farm: { type: 'farm', name: 'Fattoria', description: 'Produce Grano.', cost: { wood: 20 }, production: { grain: 10 }, maxWorkers: 3 },
-  windmill: { type: 'windmill', name: 'Mulino', description: 'Crea Farina.', cost: { wood: 80, stone: 40 }, consumption: { grain: 8 }, production: { flour: 8 }, maxWorkers: 2 },
-  bakery: { type: 'bakery', name: 'Forno', description: 'Crea Pane.', cost: { stone: 100, gold: 50 }, consumption: { flour: 6 }, production: { bread: 12 }, maxWorkers: 2 },
-  lumber_mill: { type: 'lumber_mill', name: 'Segheria', description: 'Legname.', cost: { wood: 10, stone: 5 }, production: { wood: 12 }, maxWorkers: 2, requiresNode: 'forest' },
-  stone_quarry: { type: 'stone_quarry', name: 'Cava', description: 'Pietra.', cost: { wood: 40 }, production: { stone: 10 }, maxWorkers: 3, requiresNode: 'stone_deposit' },
-  iron_mine: { type: 'iron_mine', name: 'Miniera', description: 'Estrae Ferro.', cost: { wood: 60, stone: 30 }, production: { iron: 5 }, maxWorkers: 4, requiresNode: 'iron_deposit' },
-  blacksmith: { type: 'blacksmith', name: 'Fabbro', description: 'Attrezzi.', cost: { wood: 50, stone: 50, gold: 50 }, consumption: { iron: 3, wood: 2 }, production: { tools: 2 }, maxWorkers: 2 },
-  barracks: { type: 'barracks', name: 'Caserma', description: 'Difesa.', cost: { stone: 150, gold: 100 }, production: { gold: -5 }, maxWorkers: 8 },
-  well: { type: 'well', name: 'Pozzo', description: 'Salute.', cost: { stone: 50 }, maxWorkers: 0 },
-  university: { type: 'university', name: 'Università', description: 'Conoscenza.', cost: { stone: 200, gold: 200 }, production: { knowledge: 8 }, maxWorkers: 4 },
-  church: { type: 'church', name: 'Chiesa', description: 'Pietà.', cost: { stone: 100, wood: 50 }, production: { piety: 3 }, maxWorkers: 1 },
-  cathedral: { type: 'cathedral', name: 'Cattedrale', description: 'Divinità.', cost: { stone: 800, gold: 1000 }, production: { piety: 15, prestige: 10 }, maxWorkers: 6 },
-  brewery: { type: 'brewery', name: 'Birrificio', description: 'Birra.', cost: { wood: 100, gold: 100 }, production: { beer: 5 }, maxWorkers: 2 },
-  tailor: { type: 'tailor', name: 'Sartoria', description: 'Vestiti.', cost: { gold: 150, tools: 5 }, production: { clothes: 2 }, maxWorkers: 2 },
-  granary: { type: 'granary', name: 'Granaio', description: 'Conserva cibo.', cost: { wood: 50, stone: 30 }, maxWorkers: 2 },
-  market: { type: 'market', name: 'Mercato', description: 'Commercio.', cost: { wood: 80, gold: 50 }, production: { gold: 5 }, maxWorkers: 3 },
-  manor: { type: 'manor', name: 'Maniero', description: 'Residenza nobiliare.', cost: { stone: 400, gold: 300 }, populationProvided: 15, maxWorkers: 5 },
-  wall: { type: 'wall', name: 'Mura', description: 'Difesa statica.', cost: { stone: 30 }, maxWorkers: 0 },
-  tower: { type: 'tower', name: 'Torre', description: 'Punta difensiva.', cost: { stone: 150 }, maxWorkers: 4 },
-  road: { type: 'road', name: 'Strada', description: 'Movimento veloce.', cost: { wood: 5 }, maxWorkers: 0 },
-  winery: { type: 'winery', name: 'Vigneto', description: 'Produce vino.', cost: { wood: 60, gold: 40 }, production: { wine: 4 }, maxWorkers: 2 },
-  jeweler: { type: 'jeweler', name: 'Gioielliere', description: 'Crea gioielli.', cost: { gold: 200, tools: 10 }, production: { jewelry: 1 }, maxWorkers: 2 },
-  sheep_farm: { type: 'sheep_farm', name: 'Allevamento Pecore', description: 'Produce lana.', cost: { wood: 40 }, production: { wool: 5 }, maxWorkers: 2 },
-  weaving_mill: { type: 'weaving_mill', name: 'Tessitoria', description: 'Crea tessuto.', cost: { wood: 70, gold: 30 }, consumption: { wool: 4 }, production: { fabric: 4 }, maxWorkers: 2 },
+  keep: { type: 'keep', name: 'Mastio Reale', description: 'Simbolo di potere.', cost: { gold: 400, stone: 250 }, production: { gold: 8, prestige: 2, knowledge: 1 }, populationProvided: 18, maxWorkers: 0 },
+  house: { type: 'house', name: 'Casa', description: 'Abitazione sudditi.', cost: { wood: 25 }, populationProvided: 6, maxWorkers: 0 },
+  farm: { type: 'farm', name: 'Fattoria', description: 'Produce Grano.', cost: { wood: 15 }, production: { grain: 8 }, maxWorkers: 2 },
+  windmill: { type: 'windmill', name: 'Mulino', description: 'Crea Farina.', cost: { wood: 60, stone: 30 }, consumption: { grain: 6 }, production: { flour: 8 }, maxWorkers: 2 },
+  bakery: { type: 'bakery', name: 'Forno', description: 'Crea Pane.', cost: { stone: 80, gold: 40 }, consumption: { flour: 5 }, production: { bread: 10 }, maxWorkers: 2 },
+  lumber_mill: { type: 'lumber_mill', name: 'Segheria', description: 'Legname.', cost: { wood: 15, stone: 10 }, production: { wood: 10 }, maxWorkers: 3, requiresNode: 'forest' },
+  stone_quarry: { type: 'stone_quarry', name: 'Cava', description: 'Pietra.', cost: { wood: 30 }, production: { stone: 8 }, maxWorkers: 3, requiresNode: 'stone_deposit' },
+  iron_mine: { type: 'iron_mine', name: 'Miniera', description: 'Estrae Ferro.', cost: { wood: 50, stone: 25 }, production: { iron: 4 }, maxWorkers: 4, requiresNode: 'iron_deposit' },
+  blacksmith: { type: 'blacksmith', name: 'Fabbro', description: 'Attrezzi.', cost: { wood: 40, stone: 40, gold: 60 }, consumption: { iron: 3, wood: 2 }, production: { tools: 3 }, maxWorkers: 3 },
+  barracks: { type: 'barracks', name: 'Caserma', description: 'Difesa.', cost: { stone: 120, gold: 80 }, production: { gold: -3 }, maxWorkers: 6 },
+  well: { type: 'well', name: 'Pozzo', description: 'Salute.', cost: { stone: 40 }, maxWorkers: 0 },
+  university: { type: 'university', name: 'Università', description: 'Conoscenza.', cost: { stone: 180, gold: 180 }, production: { knowledge: 10 }, maxWorkers: 4 },
+  church: { type: 'church', name: 'Chiesa', description: 'Pietà.', cost: { stone: 80, wood: 40 }, production: { piety: 4 }, maxWorkers: 2 },
+  cathedral: { type: 'cathedral', name: 'Cattedrale', description: 'Divinità.', cost: { stone: 700, gold: 900 }, production: { piety: 18, prestige: 12 }, maxWorkers: 8 },
+  brewery: { type: 'brewery', name: 'Birrificio', description: 'Birra.', cost: { wood: 80, gold: 80 }, production: { beer: 6 }, maxWorkers: 3 },
+  tailor: { type: 'tailor', name: 'Sartoria', description: 'Vestiti.', cost: { gold: 120, tools: 4 }, production: { clothes: 3 }, maxWorkers: 3 },
+  granary: { type: 'granary', name: 'Granaio', description: 'Conserva cibo.', cost: { wood: 40, stone: 25 }, maxWorkers: 2 },
+  market: { type: 'market', name: 'Mercato', description: 'Commercio.', cost: { wood: 60, gold: 40 }, production: { gold: 6 }, maxWorkers: 3 },
+  manor: { type: 'manor', name: 'Maniero', description: 'Residenza nobiliare.', cost: { stone: 350, gold: 250 }, populationProvided: 12, maxWorkers: 4 },
+  wall: { type: 'wall', name: 'Mura', description: 'Difesa statica.', cost: { stone: 25 }, maxWorkers: 0 },
+  tower: { type: 'tower', name: 'Torre', description: 'Punta difensiva.', cost: { stone: 120 }, maxWorkers: 3 },
+  road: { type: 'road', name: 'Strada', description: 'Movimento veloce.', cost: { wood: 4 }, maxWorkers: 0 },
+  winery: { type: 'winery', name: 'Vigneto', description: 'Produce vino.', cost: { wood: 50, gold: 35 }, production: { wine: 5 }, maxWorkers: 2 },
+  jeweler: { type: 'jeweler', name: 'Gioielliere', description: 'Crea gioielli.', cost: { gold: 180, tools: 8 }, production: { jewelry: 2 }, maxWorkers: 3 },
+  sheep_farm: { type: 'sheep_farm', name: 'Allevamento Pecore', description: 'Produce lana.', cost: { wood: 35 }, production: { wool: 6 }, maxWorkers: 2 },
+  weaving_mill: { type: 'weaving_mill', name: 'Tessitoria', description: 'Crea tessuto.', cost: { wood: 60, gold: 25 }, consumption: { wool: 4 }, production: { fabric: 5 }, maxWorkers: 3 },
 };
 
 export function generateNodes(): import('./types').ResourceNode[] {
@@ -65,27 +86,69 @@ export function generateNodes(): import('./types').ResourceNode[] {
   ];
 }
 
-export const INITIAL_STATE: GameState = {
-  resources: INITIAL_RESOURCES,
-  time: { day: 1, month: 1, year: 1, season: 'Spring', tick: 0 },
-  technologies: INITIAL_TECHS,
-  buildings: [{ id: 'start-keep', type: 'keep', x: 22, y: 22, level: 1, assignedWorkers: 0, efficiencyBonus: 0, condition: 100 }],
-  resourceNodes: generateNodes(),
-  population: { peasants: 25, citizens: 0, nobles: 0, total: 25, happiness: 100, health: 100 },
-  sovereign: { name: 'Re Alberto I', age: 45, traits: ['Just'], portrait: '👑' },
-  heir: { name: 'Principe Giovanni', age: 18, traits: ['Scholar'], portrait: '🧒' },
-  laws: INITIAL_LAWS,
-  factions: [
-    { type: 'merchants', name: 'Gilda Mercanti', favor: 0, bonus: 'Trade' } as Faction,
-    { type: 'clergy', name: 'Alto Clero', favor: 0, bonus: 'Faith' } as Faction,
-    { type: 'military', name: 'Ordine Militare', favor: 0, bonus: 'Defense' } as Faction
-  ],
-  defenseRating: 25,
-  threatLevel: 0,
-  taxRate: 0.1,
-  inflation: 1.0,
-  debt: 0,
-  activeDialogue: null,
-  lastDialogueResult: null,
-  weather: 'Clear'
-};
+export function createInitialState(setup?: GameSetup): GameState {
+  let resources = { ...INITIAL_RESOURCES };
+  let population = { peasants: 25, citizens: 0, nobles: 0, total: 25, happiness: 100, health: 100, unemployed: 25, housed: 20 };
+  let sovereignName = 'Re Alberto I';
+  
+  if (setup) {
+    // Apply region bonuses
+    const regionBonus = REGION_BONUSES[setup.region] || {};
+    Object.entries(regionBonus).forEach(([key, value]) => {
+      if (key === 'happiness') {
+        population.happiness += value as number;
+      } else if (key in resources) {
+        resources[key as keyof Resources] += value as number;
+      }
+    });
+    
+    // Apply difficulty modifiers
+    const diffModifier = DIFFICULTY_MODIFIERS[setup.difficulty];
+    if (diffModifier.resourceMultiplier !== 1.0) {
+      Object.keys(resources).forEach(key => {
+        if (key !== 'prestige' && key !== 'knowledge' && key !== 'piety') {
+          resources[key as keyof Resources] = Math.floor(resources[key as keyof Resources] * diffModifier.resourceMultiplier);
+        }
+      });
+    }
+    
+    sovereignName = setup.sovereignName;
+    population.happiness = Math.min(100, Math.max(0, population.happiness));
+  }
+  
+  return {
+    resources,
+    time: { day: 1, month: 1, year: 1, season: 'spring', tick: 0 },
+    technologies: INITIAL_TECHS,
+    buildings: [{ id: 'start-keep', type: 'keep', x: 22, y: 22, level: 1, assignedWorkers: 0, efficiencyBonus: 0, condition: 100 }],
+    resourceNodes: generateNodes(),
+    population,
+    sovereign: { name: sovereignName, age: 45, traits: ['Just'], portrait: '👑' },
+    heir: { name: `${sovereignName.split(' ')[0]} II`, age: 18, traits: ['Scholar'], portrait: '🧒' },
+    laws: INITIAL_LAWS,
+    factions: [
+      { type: 'merchants', name: 'Gilda Mercanti', favor: 0, bonus: 'Trade', effect: { resource: 'gold', bonus: 0.1 } } as Faction,
+      { type: 'clergy', name: 'Alto Clero', favor: 0, bonus: 'Faith', effect: { resource: 'piety', bonus: 0.2 } } as Faction,
+      { type: 'military', name: 'Ordine Militare', favor: 0, bonus: 'Defense', effect: { event: 'defense_boost' } } as Faction
+    ],
+    kingdoms: [
+      { name: 'Wessex', relations: 50, status: 'peace' as const, strength: 80 },
+      { name: 'Mercia', relations: 30, status: 'peace' as const, strength: 60 },
+      { name: 'Vichinghi', relations: -20, status: 'war' as const, strength: 70 },
+      { name: 'Francia', relations: 40, status: 'trade' as const, strength: 90 }
+    ],
+    events: [],
+    status: 'playing',
+    defenseRating: 25,
+    threatLevel: 0,
+    taxRate: 0.1,
+    inflation: 1.0,
+    debt: 0,
+    activeDialogue: null,
+    lastDialogueResult: null,
+    weather: 'Clear',
+    setup
+  };
+}
+
+export const INITIAL_STATE = createInitialState();
