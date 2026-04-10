@@ -11,6 +11,7 @@ interface HUDProps {
   season: SeasonType;
   day: number;
   month: number;
+  piety?: number;
 }
 
 const SEASON_ICONS: Record<SeasonType, string> = {
@@ -20,7 +21,7 @@ const SEASON_ICONS: Record<SeasonType, string> = {
   winter: '❄️'
 };
 
-export function HUD({ resources, population, defenseRating, year, season, day, month }: HUDProps) {
+export function HUD({ resources, population, defenseRating, year, season, day, month, piety }: HUDProps) {
   const [seasonPhase, setSeasonPhase] = useState<'start' | 'mid' | 'late'>('start');
   
   useEffect(() => {
@@ -46,6 +47,7 @@ export function HUD({ resources, population, defenseRating, year, season, day, m
       <div className="res-group">
         <ResourceBadge icon="👥" value={population.total} />
         <ResourceBadge icon="🛡️" value={defenseRating} />
+        {piety !== undefined && <ResourceBadge icon="🙏" value={piety} color="#c5a4e8" />}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px' }}>
           <span style={{ fontSize: '1.2em' }}>{SEASON_ICONS[season]}</span>
           <div style={{ display: 'flex', flexDirection: 'column' }}>

@@ -9,3 +9,5 @@ export { MapWithEffects } from './MapWithEffects';
 export { NotificationSystem, useGameNotifications } from './NotificationSystem';
 export { SaveManager } from './SaveManager';
 export { GameSetup } from './GameSetup';
+export { EventModal } from './EventModal';
+export { AdvancedEconomyPanel } from './AdvancedEconomyPanel';

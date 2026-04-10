@@ -2,20 +2,22 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import { useGameEngine } from './game/useGameEngine';
 import { BUILDINGS } from './game/constants';
-import { HUD, SidebarNav, BuildingSidebar, ResearchPanel, EconomyPanel, CourtPanel, MapWithEffects, NotificationSystem, useGameNotifications, SaveManager, GameSetup } from './components';
+import { HUD, SidebarNav, BuildingSidebar, ResearchPanel, EconomyPanel, CourtPanel, MapWithEffects, NotificationSystem, useGameNotifications, SaveManager, GameSetup, AdvancedEconomyPanel } from './components';
+import { EventModal } from './components/EventModal';
 import type { BuildingType, Resources } from './game/types';
 import type { GameSetupData } from './components/GameSetup';
 
 const GRID_SIZE = 50;
 
 function App() {
-  const { gameState, buildBuilding, assignWorker, unlockTech, enactLaw, updateDiplomacy, dismissEvent, resetGame, saveGame, loadGame, deleteSave, getSaveSlots, startNewGame, upgradeBuilding } = useGameEngine();
+  const { gameState, buildBuilding, assignWorker, unlockTech, enactLaw, updateDiplomacy, dismissEvent, resetGame, saveGame, loadGame, deleteSave, getSaveSlots, startNewGame, upgradeBuilding, startDiplomaticMission, chooseEventOption, setTaxRate, takeLoan, repayDebt } = useGameEngine();
   const { notifications, dismissNotification } = useGameNotifications();
   const [showSetup, setShowSetup] = useState(true);
   const [activeTab, setActiveTab] = useState<'map' | 'research' | 'economy' | 'court'>('map');
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingType | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [showSaveManager, setShowSaveManager] = useState(false);
+  const [activeEvent, setActiveEvent] = useState<{ event: any; index: number } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('feudal_lord_research_v1');
@@ -102,6 +104,7 @@ function App() {
         season={gameState.time.season}
         day={gameState.time.day}
         month={gameState.time.month}
+        piety={gameState.resources.piety}
       />
 
       <NotificationSystem 
@@ -123,23 +126,44 @@ function App() {
           {gameState.events.slice(0, 3).map((event, idx) => (
             <div
               key={`${event.id}-${idx}`}
-              onClick={() => dismissEvent(idx)}
+              onClick={() => {
+                if (event.choices && event.choices.length > 0) {
+                  setActiveEvent({ event, index: idx });
+                } else {
+                  dismissEvent(idx);
+                }
+              }}
               style={{
-                background: event.type === 'positive' ? 'rgba(76,175,80,0.95)' : event.type === 'negative' ? 'rgba(244,67,54,0.95)' : 'rgba(33,150,243,0.95)',
+                background: event.type === 'positive' ? 'rgba(76,175,80,0.95)' : event.type === 'negative' ? 'rgba(244,67,54,0.95)' : event.type === 'crisis' ? 'rgba(255,87,34,0.95)' : event.type === 'opportunity' ? 'rgba(255,152,0,0.95)' : 'rgba(33,150,243,0.95)',
                 color: '#fff',
                 padding: '12px 16px',
                 borderRadius: '8px',
                 cursor: 'pointer',
                 boxShadow: '0 4px 15px rgba(0,0,0,0.4)',
                 animation: 'slideInRight 0.3s ease-out',
-                backdropFilter: 'blur(5px)'
+                backdropFilter: 'blur(5px)',
+                border: event.choices ? '2px solid #ffeb3b' : 'none'
               }}
             >
               <strong style={{ display: 'block', marginBottom: '4px', fontFamily: 'MedievalSharp' }}>{event.title}</strong>
               <span style={{ fontSize: '0.9em' }}>{event.description}</span>
+              {event.choices && <div style={{ fontSize: '0.75em', marginTop: '5px', fontWeight: 'bold' }}>📜 Clicca per scegliere</div>}
             </div>
           ))}
         </div>
+      )}
+
+      {activeEvent && (
+        <EventModal
+          event={activeEvent.event}
+          onChoose={(choiceId) => {
+            chooseEventOption(activeEvent.index, choiceId);
+            setActiveEvent(null);
+          }}
+          onClose={() => setActiveEvent(null)}
+          resources={gameState.resources}
+          defenseRating={gameState.defenseRating}
+        />
       )}
 
       <div className="main-layout">
@@ -182,26 +206,35 @@ function App() {
           )}
 
           {activeTab === 'economy' && (
-            <EconomyPanel
+            <AdvancedEconomyPanel
               resources={gameState.resources}
               inflation={gameState.inflation}
               population={gameState.population}
               season={gameState.time.season}
+              taxRate={gameState.taxRate}
+              debt={gameState.debt}
+              defenseRating={gameState.defenseRating}
+              onSetTaxRate={setTaxRate}
+              onTakeLoan={takeLoan}
+              onRepayDebt={repayDebt}
             />
           )}
 
-          {activeTab === 'court' && (
-            <CourtPanel 
-              sovereign={gameState.sovereign}
-              heir={gameState.heir}
-              laws={gameState.laws}
-              factions={gameState.factions}
-              kingdoms={gameState.kingdoms}
-              gold={gameState.resources.gold}
-              onEnactLaw={enactLaw}
-              onUpdateDiplomacy={updateDiplomacy}
-            />
-          )}
+           {activeTab === 'court' && (
+             <CourtPanel 
+               sovereign={gameState.sovereign}
+               heir={gameState.heir}
+               heirs={gameState.heirs}
+               successionLaw={gameState.successionLaw}
+               laws={gameState.laws}
+               factions={gameState.factions}
+               kingdoms={gameState.kingdoms}
+               gold={gameState.resources.gold}
+               onEnactLaw={enactLaw}
+               onUpdateDiplomacy={updateDiplomacy}
+               onStartDiplomaticMission={startDiplomaticMission}
+             />
+           )}
         </div>
       </div>
 

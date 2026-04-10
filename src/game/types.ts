@@ -49,29 +49,55 @@ export interface ResourceNode {
 export interface Kingdom {
   name: string;
   relations: number;
-  status: 'peace' | 'war' | 'alliance' | 'trade';
+  status: 'peace' | 'war' | 'alliance' | 'trade' | 'vassal' | 'suzerain';
   strength: number;
   activeMission?: DiplomaticMission;
+  missionsCompleted: number;
+  lastInteraction: number;
 }
 
 export interface DiplomaticMission {
   id: string;
   kingdom: string;
-  type: 'trade' | 'military' | 'cultural' | 'aid';
+  type: 'trade' | 'military' | 'cultural' | 'aid' | 'marriage' | 'embassy' | 'tribute' | 'espionage';
   description: string;
   requirements: Partial<Resources>;
-  reward: { relations: number; resources?: Partial<Resources>; prestige?: number };
+  reward: { relations: number; resources?: Partial<Resources>; prestige?: number; knowledge?: number; piety?: number };
   duration: number;
   progress: number;
+  risk: number; // 0-100, chance of failure or negative consequences
+  successChance: number; // Based on relations, resources invested, kingdom traits
+}
+
+export interface EventChoice {
+  id: string;
+  text: string;
+  description?: string;
+  requirements?: Partial<Resources> & { gold?: number; knowledge?: number; piety?: number; prestige?: number; defense?: number };
+  effects: {
+    resources?: Partial<Resources>;
+    happiness?: number;
+    health?: number;
+    population?: number;
+    defense?: number;
+    relations?: { kingdom: string; delta: number }[];
+    factionFavor?: { faction: string; delta: number }[];
+    conspiracyChance?: number;
+    successionLaw?: SuccessionLaw;
+  };
+  probability?: number;
 }
 
 export interface GameEvent {
   id: string;
   title: string;
   description: string;
-  type: 'positive' | 'negative' | 'neutral';
+  type: 'positive' | 'negative' | 'neutral' | 'crisis' | 'opportunity';
   effect?: string;
   turn?: number;
+  choices?: EventChoice[];
+  chosenChoice?: string;
+  image?: string; // Emoji or icon for the event
 }
 
 export type GameStatus = 'playing' | 'won' | 'lost';
@@ -101,6 +127,10 @@ export interface GameState {
   };
   sovereign: Sovereign;
   heir: Sovereign;
+  heirs: Heir[];
+  successionLaw: SuccessionLaw;
+  religiousAuthority: ReligiousAuthority;
+  piety: number;
   laws: Law[];
   factions: Faction[];
   kingdoms: Kingdom[];
@@ -125,6 +155,20 @@ export interface Sovereign {
   portrait: string;
 }
 
+export type SuccessionLaw = 'primogeniture' | 'ultimogeniture' | 'elective' | 'gavelkind';
+
+export interface Heir {
+  id: string;
+  name: string;
+  age: number;
+  relation: 'son' | 'daughter' | 'brother' | 'sister' | 'cousin' | 'nephew' | 'niece';
+  claimStrength: number;
+  traits: string[];
+  isFavorite: boolean;
+  successionOrder: number;
+  alive: boolean;
+}
+
 export interface Law {
   id: string;
   name: string;
@@ -140,4 +184,15 @@ export interface Faction {
   favor: number;
   bonus: string;
   effect?: { resource?: string; bonus?: number; event?: string };
+}
+
+export type ExcommunicationLevel = 'none' | 'warning' | 'minor' | 'major';
+
+export interface ReligiousAuthority {
+  popeRelation: number;
+  bishopInfluence: number;
+  excommunicationLevel: ExcommunicationLevel;
+  crusadeActive: boolean;
+  heresyLevel: number;
+  inquisitionActive: boolean;
 }

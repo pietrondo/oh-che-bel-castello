@@ -166,7 +166,7 @@ export function GameSetup({ onStartGame, onLoadGame, hasSavedGames }: GameSetupP
                   key={diff.id}
                   type="button"
                   className={`difficulty-card ${difficulty === diff.id ? 'selected' : ''}`}
-                  onClick={() => setDifficulty(diff.id)}
+                  onClick={() => setDifficulty(diff.id as 'easy' | 'normal' | 'hard')}
                 >
                   <span className="difficulty-icon">{diff.icon}</span>
                   <span className="difficulty-name">{diff.name}</span>

@@ -11,6 +11,11 @@ Un RTS gestionale medievale avanzato per browser, dove vesti i panni di un sovra
 *   **Upgrade Edifici**: Migliora i tuoi edifici fino al livello 5 con costi e benefici crescenti
 *   **Assegnazione Lavoratori**: Ogni edificio produttivo può avere lavoratori assegnati
 *   **Ricerca Tecnologica**: Sblocca avanzamenti in Economia, Scienza, Militare e Sociale
+*   **Eventi Dinamici**: Oltre 30 eventi con scelte multiple e conseguenze a catena
+*   **Sistema Religioso**: Gestisci rapporti con la Chiesa, scomuniche, crociate ed eresie
+*   **Intrighi di Corte**: Cospirazioni, tradimenti, assassinii e favori tra fazioni
+*   **Successione Dinastica**: Eredi multipli, leggi di successione e crisi dinastiche
+*   **Diplomazia Avanzata**: 8 tipi di missioni diplomatiche con regni vicini
 
 ### 💎 Design System
 *   **Interfaccia Desktop**: Navigazione verticale a sinistra per un'esperienza immersiva

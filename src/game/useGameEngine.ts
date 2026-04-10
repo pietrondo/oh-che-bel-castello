@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import type { GameState, BuildingType, Resources, GameEvent, DiplomaticMission, Kingdom, GameSetup } from './types';
+import type { GameState, BuildingType, Resources, GameEvent, DiplomaticMission, Kingdom, GameSetup, EventChoice, Heir, ReligiousAuthority, ExcommunicationLevel } from './types';
 import { createInitialState, BUILDINGS, generateNodes, SEASONS } from './constants';
 import { BUILDING_UPGRADES } from './buildingUpgrades';
+import { DYNAMIC_EVENTS, getRandomEvent } from './dynamicEvents';
 
 const TICK_RATE = 1000;
 const SAVE_KEY = 'feudal_lord_research_v1';
@@ -84,6 +85,7 @@ export function useGameEngine() {
 
   const lastTickRef = useRef<number>(0);
   const eventsProcessedRef = useRef<Set<string>>(new Set());
+  const conspiracyChanceRef = useRef<number>(0);
 
   useEffect(() => {
     localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
@@ -110,10 +112,10 @@ export function useGameEngine() {
   const generateDiplomaticMission = (kingdom: Kingdom): DiplomaticMission | null => {
     if (kingdom.status === 'war') return null;
     const missions: Omit<DiplomaticMission, 'progress' | 'duration'>[] = [
-      { id: `trade_${kingdom.name}`, kingdom: kingdom.name, type: 'trade', description: 'Stabilisci rotta commerciale', requirements: { gold: 100 }, reward: { relations: 15, resources: { gold: 50 } } },
-      { id: `military_${kingdom.name}`, kingdom: kingdom.name, type: 'military', description: 'Esercitazione congiunta', requirements: { food: 200, tools: 10 }, reward: { relations: 20, prestige: 30 } },
-      { id: `cultural_${kingdom.name}`, kingdom: kingdom.name, type: 'cultural', description: 'Scambio culturale', requirements: { knowledge: 50 }, reward: { relations: 25, resources: { knowledge: 30 } } },
-      { id: `aid_${kingdom.name}`, kingdom: kingdom.name, type: 'aid', description: 'Invia aiuti umanitari', requirements: { food: 150, gold: 50 }, reward: { relations: 30, prestige: 20 } },
+      { id: `trade_${kingdom.name}`, kingdom: kingdom.name, type: 'trade', description: 'Stabilisci rotta commerciale', requirements: { gold: 100 }, reward: { relations: 15, resources: { gold: 50 } }, risk: 10, successChance: 80 },
+      { id: `military_${kingdom.name}`, kingdom: kingdom.name, type: 'military', description: 'Esercitazione congiunta', requirements: { food: 200, tools: 10 }, reward: { relations: 20, prestige: 30 }, risk: 30, successChance: 60 },
+      { id: `cultural_${kingdom.name}`, kingdom: kingdom.name, type: 'cultural', description: 'Scambio culturale', requirements: { knowledge: 50 }, reward: { relations: 25, resources: { knowledge: 30 } }, risk: 5, successChance: 85 },
+      { id: `aid_${kingdom.name}`, kingdom: kingdom.name, type: 'aid', description: 'Invia aiuti umanitari', requirements: { food: 150, gold: 50 }, reward: { relations: 30, prestige: 20 }, risk: 5, successChance: 90 },
     ];
     const selected = missions[Math.floor(Math.random() * missions.length)];
     return { ...selected, progress: 0, duration: 3 };
@@ -289,15 +291,214 @@ export function useGameEngine() {
       }
     });
 
-    if (nextTime.day % 7 === 0 && Math.random() < 0.15) {
-      const event = RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)];
+    if (nextTime.day % 7 === 0 && Math.random() < 0.25) {
+      // Generate dynamic events with choices
+      const eventType = Math.random() < 0.4 ? 'crisis' : Math.random() < 0.7 ? 'opportunity' : Math.random() < 0.85 ? 'positive' : 'negative';
+      const event = getRandomEvent(eventType as any);
+      
       if (!eventsProcessedRef.current.has(`${event.id}_${nextTime.tick}`)) {
-        state = addEvent(state, event);
-        if (event.effect) {
-          state = applyEventEffect(state, event.effect);
-          Object.assign(nextResources, state.resources);
-        }
+        state = addEvent(state, { ...event, turn: nextTime.tick });
         eventsProcessedRef.current.add(`${event.id}_${nextTime.tick}`);
+      }
+    }
+
+    // Conspiracy system based on faction favor and sovereign health
+    if (nextTime.day % 10 === 0) {
+      let baseConspiracyChance = 0.05;
+      
+      // Low faction favor increases conspiracy chance
+      state.factions.forEach(faction => {
+        if (faction.favor < -30) {
+          baseConspiracyChance += Math.abs(faction.favor) / 200;
+        }
+        if (faction.favor < -60) {
+          baseConspiracyChance += 0.1;
+        }
+      });
+      
+      // Low happiness and health increase conspiracy
+      if (state.population.happiness < 40) {
+        baseConspiracyChance += (40 - state.population.happiness) / 100;
+      }
+      if (state.population.health < 40) {
+        baseConspiracyChance += (40 - state.population.health) / 100;
+      }
+      
+      // Add accumulated conspiracy chance from events
+      baseConspiracyChance += conspiracyChanceRef.current;
+      
+      // Decay conspiracy chance over time
+      conspiracyChanceRef.current = Math.max(0, conspiracyChanceRef.current - 0.01);
+      
+      if (Math.random() < baseConspiracyChance) {
+        const conspiracyEvents = DYNAMIC_EVENTS.filter(e => 
+          e.id === 'court_betrayal' || 
+          e.id === 'assassination_attempt' || 
+          e.id === 'poison_plot' ||
+          e.id === 'noble_conspiracy'
+        );
+        const conspiracy = conspiracyEvents[Math.floor(Math.random() * conspiracyEvents.length)];
+        
+        if (conspiracy && !eventsProcessedRef.current.has(`conspiracy_${nextTime.tick}`)) {
+          state = addEvent(state, { ...conspiracy, turn: nextTime.tick });
+          eventsProcessedRef.current.add(`conspiracy_${nextTime.tick}`);
+        }
+      }
+    }
+
+    // Succession system: aging, death, births
+    if (nextTime.day % 30 === 0) {
+      // Age sovereign and heirs
+      const sovereignAgeChance = state.sovereign.age >= 60 ? 0.1 : state.sovereign.age >= 50 ? 0.05 : 0.02;
+      const healthModifier = (100 - state.population.health) / 200;
+      const deathChance = sovereignAgeChance + healthModifier;
+      
+      if (Math.random() < deathChance && state.sovereign.age >= 40) {
+        // Sovereign death - trigger succession
+        const successionEvent = DYNAMIC_EVENTS.find(e => e.id === 'succession_crisis');
+        if (successionEvent && !eventsProcessedRef.current.has(`succession_${nextTime.year}`)) {
+          state = addEvent(state, { ...successionEvent, turn: nextTime.tick });
+          eventsProcessedRef.current.add(`succession_${nextTime.year}`);
+        }
+      }
+      
+      // Birth chance based on sovereign age and happiness
+      if (state.sovereign.age < 50 && state.population.happiness > 50 && Math.random() < 0.03) {
+        const birthEvent = DYNAMIC_EVENTS.find(e => e.id === 'heir_birth');
+        if (birthEvent && !eventsProcessedRef.current.has(`birth_${nextTime.year}_${nextTime.month}`)) {
+          state = addEvent(state, { ...birthEvent, turn: nextTime.tick });
+          eventsProcessedRef.current.add(`birth_${nextTime.year}_${nextTime.month}`);
+          
+          // Add new heir
+          const newHeir: Heir = {
+            id: `heir_${Date.now()}`,
+            name: state.setup?.dynastyName || 'Royal' + ' ' + (state.heirs.length + 1),
+            age: 0,
+            relation: 'son',
+            claimStrength: 100,
+            traits: [],
+            isFavorite: false,
+            successionOrder: state.heirs.length + 1,
+            alive: true
+          };
+          state.heirs.push(newHeir);
+        }
+      }
+      
+      // Age heirs
+      state.heirs.forEach(heir => {
+        if (heir.alive && heir.age < 80) {
+          heir.age += 1/12; // Age by 1 month per tick
+          
+          // Coming of age event
+          if (heir.age >= 16 && heir.age - 1/12 < 16) {
+            const comingOfAgeEvent = DYNAMIC_EVENTS.find(e => e.id === 'heir_coming_of_age');
+            if (comingOfAgeEvent && !eventsProcessedRef.current.has(`comingofage_${heir.id}`)) {
+              state = addEvent(state, { ...comingOfAgeEvent, turn: nextTime.tick });
+              eventsProcessedRef.current.add(`comingofage_${heir.id}`);
+            }
+          }
+        }
+      });
+    }
+
+    // Religious system: piety generation, excommunication, crusades
+    if (nextTime.day % 15 === 0) {
+      // Generate piety from buildings and clergy favor
+      let pietyGenerated = 0;
+      
+      // Piety from church/cathedral buildings
+      state.buildings.forEach(building => {
+        if (building.type === 'church') {
+          pietyGenerated += 4 * (building.level / 2);
+        } else if (building.type === 'cathedral') {
+          pietyGenerated += 18 * (building.level / 3);
+        }
+      });
+      
+      // Piety from clergy faction favor
+      const clergyFaction = state.factions.find(f => f.type === 'clergy');
+      if (clergyFaction && clergyFaction.favor > 0) {
+        pietyGenerated += clergyFaction.favor / 20;
+      }
+      
+      // Piety from laws (Divine Right)
+      const divineRightLaw = state.laws.find(l => l.id === 'divine_right' && l.active);
+      if (divineRightLaw) {
+        pietyGenerated += 2;
+      }
+      
+      // Piety from theology tech
+      const theologyTech = state.technologies.find(t => t.id === 'theology' && t.unlocked);
+      if (theologyTech) {
+        pietyGenerated += 5;
+      }
+      
+      if (pietyGenerated > 0) {
+        nextResources.piety += pietyGenerated;
+      }
+      
+      // Excommunication progression based on piety and relations with Pope
+      let currentExcommunication: ExcommunicationLevel = 'none';
+      if (state.religiousAuthority.excommunicationLevel !== 'none') {
+        // Check if we can reduce excommunication through piety or payments
+        if (nextResources.piety >= 50) {
+          if (state.religiousAuthority.excommunicationLevel === 'major') {
+            state.religiousAuthority.excommunicationLevel = 'minor';
+            nextResources.piety -= 50;
+          } else if (state.religiousAuthority.excommunicationLevel === 'minor') {
+            state.religiousAuthority.excommunicationLevel = 'warning';
+            nextResources.piety -= 30;
+          } else if (state.religiousAuthority.excommunicationLevel === 'warning') {
+            state.religiousAuthority.excommunicationLevel = 'none';
+            nextResources.piety -= 20;
+          }
+        }
+        
+        // Increase heresy level if excommunicated and not paying attention
+        if (state.religiousAuthority.excommunicationLevel !== 'none') {
+          state.religiousAuthority.heresyLevel = Math.min(100, state.religiousAuthority.heresyLevel + 5);
+        }
+      }
+      
+      // Trigger excommunication events based on heresy level and papal relations
+      if (state.religiousAuthority.popeRelation <= -50 && Math.random() < 0.3) {
+        // High chance of excommunication threat
+        const excommEvents = DYNAMIC_EVENTS.filter(e => 
+          e.id === 'excommunication_threat' || 
+          e.id === 'excommunication_major'
+        );
+        const excommEvent = excommEvents[Math.floor(Math.random() * excommEvents.length)];
+        if (excommEvent && !eventsProcessedRef.current.has(`excomm_${nextTime.tick}`)) {
+          state = addEvent(state, { ...excommEvent, turn: nextTime.tick });
+          eventsProcessedRef.current.add(`excomm_${nextTime.tick}`);
+          
+          // Set excommunication level based on event type
+          if (excommEvent.id === 'excommunication_major') {
+            state.religiousAuthority.excommunicationLevel = 'major';
+          } else if (excommEvent.id === 'excommunication_threat') {
+            state.religiousAuthority.excommunicationLevel = 'warning';
+          }
+        }
+      }
+      
+      // Crusade system - random crusade calls
+      if (!state.religiousAuthority.crusadeActive && Math.random() < 0.1) {
+        const crusadeEvent = DYNAMIC_EVENTS.find(e => e.id === 'crusade_call');
+        if (crusadeEvent && !eventsProcessedRef.current.has(`crusade_${nextTime.year}`)) {
+          state = addEvent(state, { ...crusadeEvent, turn: nextTime.tick });
+          eventsProcessedRef.current.add(`crusade_${nextTime.year}`);
+          state.religiousAuthority.crusadeActive = true;
+        }
+      }
+      
+      // Heresy spread events
+      if (state.religiousAuthority.heresyLevel >= 30 && Math.random() < 0.2) {
+        const heresyEvent = DYNAMIC_EVENTS.find(e => e.id === 'heresy_spread');
+        if (heresyEvent && !eventsProcessedRef.current.has(`heresy_${nextTime.tick}`)) {
+          state = addEvent(state, { ...heresyEvent, turn: nextTime.tick });
+          eventsProcessedRef.current.add(`heresy_${nextTime.tick}`);
+        }
       }
     }
 
@@ -345,20 +546,58 @@ export function useGameEngine() {
         kingdom.activeMission.progress += 1;
         if (kingdom.activeMission.progress >= kingdom.activeMission.duration) {
           const m = kingdom.activeMission;
-          state = addEvent(state, { 
-            id: `mission_complete_${m.id}`, 
-            title: '✅ Missione Completata', 
-            description: `Missione con ${m.kingdom} completata con successo!`, 
-            type: 'positive' 
-          });
-          state.kingdoms[idx].relations = Math.min(100, state.kingdoms[idx].relations + m.reward.relations);
-          if (m.reward.prestige) {
-            nextResources.prestige += m.reward.prestige;
-          }
-          if (m.reward.resources) {
-            Object.entries(m.reward.resources).forEach(([res, amt]) => {
-              nextResources[res as keyof Resources] += amt;
+          const successRoll = Math.random() * 100;
+          const isSuccess = successRoll <= m.successChance;
+          
+          if (isSuccess) {
+            state = addEvent(state, { 
+              id: `mission_complete_${m.id}`, 
+              title: '✅ Missione Completata', 
+              description: `Missione con ${m.kingdom} completata con successo!`, 
+              type: 'positive' 
             });
+            state.kingdoms[idx].relations = Math.min(100, state.kingdoms[idx].relations + m.reward.relations);
+            if (m.reward.prestige) {
+              nextResources.prestige += m.reward.prestige;
+            }
+            if (m.reward.resources) {
+              Object.entries(m.reward.resources).forEach(([res, amt]) => {
+                nextResources[res as keyof Resources] += amt;
+              });
+            }
+            if (m.reward.knowledge) {
+              nextResources.knowledge += m.reward.knowledge;
+            }
+            if (m.reward.piety) {
+              nextResources.piety += m.reward.piety;
+            }
+            state.kingdoms[idx].missionsCompleted += 1;
+            
+            // Change status if relations are high enough
+            if (state.kingdoms[idx].relations >= 80) {
+              state.kingdoms[idx].status = 'alliance';
+            } else if (state.kingdoms[idx].relations >= 40) {
+              state.kingdoms[idx].status = 'trade';
+            }
+          } else {
+            state = addEvent(state, { 
+              id: `mission_failed_${m.id}`, 
+              title: '❌ Missione Fallita', 
+              description: `La missione con ${m.kingdom} è fallita.`, 
+              type: 'negative' 
+            });
+            state.kingdoms[idx].relations = Math.max(-100, state.kingdoms[idx].relations - 5);
+            
+            // Small chance of negative consequences based on risk
+            if (Math.random() * 100 < m.risk) {
+              state = addEvent(state, { 
+                id: `mission_backfire_${m.id}`, 
+                title: '⚠️ Conseguenze Negative', 
+                description: `La missione fallita ha causato tensioni con ${m.kingdom}.`, 
+                type: 'negative' 
+              });
+              state.kingdoms[idx].relations = Math.max(-100, state.kingdoms[idx].relations - 10);
+            }
           }
           state.kingdoms[idx].activeMission = undefined;
         }
@@ -493,7 +732,7 @@ export function useGameEngine() {
               kingdoms: prev.kingdoms.map(k => {
                   if (k.name === kingdom) {
                       const newRelations = Math.max(-100, Math.min(100, k.relations + delta));
-                      let newStatus: 'peace' | 'war' | 'alliance' | 'trade' = k.status;
+                      let newStatus: 'peace' | 'war' | 'alliance' | 'trade' | 'vassal' | 'suzerain' = k.status;
                       if (newRelations >= 80) newStatus = 'alliance';
                       else if (newRelations <= -50) newStatus = 'war';
                       else if (newRelations >= 40) newStatus = 'trade';
@@ -509,6 +748,98 @@ export function useGameEngine() {
               ...prev,
               events: prev.events.filter((_, i) => i !== index)
           }));
+      },
+      chooseEventOption: (eventIndex: number, choiceId: string) => {
+        setGameState(prev => {
+          const event = prev.events[eventIndex];
+          if (!event || !event.choices) return prev;
+          
+          const choice = event.choices.find(c => c.id === choiceId);
+          if (!choice) return prev;
+          
+          // Check requirements
+          if (choice.requirements) {
+            const canAfford = Object.entries(choice.requirements).every(([key, value]) => {
+              if (key === 'gold') return prev.resources.gold >= value;
+              if (key === 'knowledge') return prev.resources.knowledge >= value;
+              if (key === 'piety') return prev.resources.piety >= value;
+              if (key === 'prestige') return prev.resources.prestige >= value;
+              if (key === 'defense') return prev.defenseRating >= value;
+              if (key in prev.resources) return prev.resources[key as keyof Resources] >= value;
+              return true;
+            });
+            
+            if (!canAfford) return prev;
+          }
+          
+          // Apply effects
+          const next = { ...prev };
+          const nextResources = { ...prev.resources };
+          
+          if (choice.effects.resources) {
+            Object.entries(choice.effects.resources).forEach(([key, value]) => {
+              nextResources[key as keyof Resources] = Math.max(0, nextResources[key as keyof Resources] + value);
+            });
+          }
+          
+          if (choice.effects.happiness) {
+            next.population = { ...next.population, happiness: Math.max(0, Math.min(100, next.population.happiness + choice.effects.happiness)) };
+          }
+          
+          if (choice.effects.health) {
+            next.population = { ...next.population, health: Math.max(0, Math.min(100, next.population.health + choice.effects.health)) };
+          }
+          
+          if (choice.effects.population) {
+            const popChange = choice.effects.population;
+            next.population = { 
+              ...next.population, 
+              peasants: Math.max(0, next.population.peasants + popChange),
+              total: Math.max(0, next.population.total + popChange)
+            };
+          }
+          
+          if (choice.effects.defense) {
+            next.defenseRating = Math.max(0, next.defenseRating + choice.effects.defense);
+          }
+          
+          if (choice.effects.relations) {
+            next.kingdoms = next.kingdoms.map(k => {
+              const relationChange = choice.effects.relations?.find(r => r.kingdom === k.name);
+              if (relationChange) {
+                return { ...k, relations: Math.max(-100, Math.min(100, k.relations + relationChange.delta)) };
+              }
+              return k;
+            });
+          }
+          
+          if (choice.effects.factionFavor) {
+            next.factions = next.factions.map(f => {
+              const favorChange = choice.effects.factionFavor?.find(ff => ff.faction === f.type);
+              if (favorChange) {
+                return { ...f, favor: Math.max(-100, Math.min(100, f.favor + favorChange.delta)) };
+              }
+              return f;
+            });
+          }
+          
+          if (choice.effects.conspiracyChance) {
+            conspiracyChanceRef.current = Math.max(0, Math.min(1, conspiracyChanceRef.current + choice.effects.conspiracyChance));
+          }
+          
+          if (choice.effects.successionLaw) {
+            next.successionLaw = choice.effects.successionLaw;
+          }
+          
+          // Remove the event and add a result notification
+          const newEvents = prev.events.filter((_, i) => i !== eventIndex);
+          
+          return {
+            ...next,
+            resources: nextResources,
+            events: newEvents
+          };
+        });
       },
       resetGame: () => { 
           eventsProcessedRef.current.clear();
@@ -554,6 +885,160 @@ export function useGameEngine() {
       },
       getSaveSlots: (): SaveSlot[] => {
         return JSON.parse(localStorage.getItem(SAVE_SLOTS_KEY) || '[]') as SaveSlot[];
+      },
+      setTaxRate: (newRate: number) => {
+        setGameState(prev => ({
+          ...prev,
+          taxRate: Math.max(0, Math.min(0.5, newRate)),
+          population: {
+            ...prev.population,
+            happiness: Math.max(0, Math.min(100, prev.population.happiness + (prev.taxRate - newRate) * 20))
+          }
+        }));
+      },
+      takeLoan: (amount: number) => {
+        setGameState(prev => {
+          const interest = amount * 0.1; // 10% interest
+          return {
+            ...prev,
+            resources: { ...prev.resources, gold: prev.resources.gold + amount },
+            debt: prev.debt + amount + interest
+          };
+        });
+      },
+      repayDebt: (amount: number) => {
+        setGameState(prev => {
+          const repayAmount = Math.min(amount, prev.debt, prev.resources.gold);
+          return {
+            ...prev,
+            resources: { ...prev.resources, gold: prev.resources.gold - repayAmount },
+            debt: Math.max(0, prev.debt - repayAmount)
+          };
+        });
+      },
+      startDiplomaticMission: (kingdomName: string, missionType: string) => {
+        setGameState(prev => {
+          const kingdomIndex = prev.kingdoms.findIndex(k => k.name === kingdomName);
+          if (kingdomIndex === -1 || prev.kingdoms[kingdomIndex].status === 'war') return prev;
+          
+          const DIPLOMATIC_MISSIONS = {
+            trade: {
+              type: 'trade',
+              description: 'Invia mercanti per stabilire rotte commerciali.',
+              requirements: { gold: 50 },
+              reward: { relations: 15, gold: 30 },
+              duration: 10,
+              risk: 10,
+              successChance: 80
+            },
+            military: {
+              type: 'military',
+              description: 'Offri supporto militare in cambio di alleanza.',
+              requirements: { gold: 100, tools: 20 },
+              reward: { relations: 25 },
+              duration: 15,
+              risk: 30,
+              successChance: 60
+            },
+            cultural: {
+              type: 'cultural',
+              description: 'Scambia studiosi e artisti per migliorare i rapporti.',
+              requirements: { knowledge: 40 },
+              reward: { relations: 20, knowledge: 20 },
+              duration: 12,
+              risk: 5,
+              successChance: 85
+            },
+            aid: {
+              type: 'aid',
+              description: 'Fornisci aiuti umanitari durante una crisi.',
+              requirements: { food: 100, bread: 50 },
+              reward: { relations: 30, piety: 15 },
+              duration: 8,
+              risk: 5,
+              successChance: 90
+            },
+            marriage: {
+              type: 'marriage',
+              description: 'Organizza un matrimonio reale per unire le dinastie.',
+              requirements: { gold: 300, prestige: 50 },
+              reward: { relations: 50 },
+              duration: 20,
+              risk: 40,
+              successChance: 50
+            },
+            embassy: {
+              type: 'embassy',
+              description: 'Costruisci un\'ambasciata permanente.',
+              requirements: { gold: 200, stone: 100 },
+              reward: { relations: 25, knowledge: 15 },
+              duration: 25,
+              risk: 15,
+              successChance: 75
+            },
+            tribute: {
+              type: 'tribute',
+              description: 'Offri tributi per evitare conflitti.',
+              requirements: { gold: 150, jewelry: 5 },
+              reward: { relations: 20 },
+              duration: 5,
+              risk: 5,
+              successChance: 95
+            },
+            espionage: {
+              type: 'espionage',
+              description: 'Invia spie per raccogliere informazioni.',
+              requirements: { gold: 80 },
+              reward: { relations: -10, knowledge: 40 },
+              duration: 10,
+              risk: 50,
+              successChance: 40
+            }
+          };
+          
+          const missionTemplate = DIPLOMATIC_MISSIONS[missionType as keyof typeof DIPLOMATIC_MISSIONS];
+          if (!missionTemplate) return prev;
+          
+          const canAfford = Object.entries(missionTemplate.requirements).every(
+            ([res, amt]) => prev.resources[res as keyof Resources] >= (amt as number)
+          );
+          
+          if (!canAfford) return prev;
+          
+          const newResources = { ...prev.resources };
+          Object.entries(missionTemplate.requirements).forEach(([res, amt]) => {
+            newResources[res as keyof Resources] -= amt as number;
+          });
+          
+          let successChance = missionTemplate.successChance;
+          successChance += Math.max(-30, Math.min(30, prev.kingdoms[kingdomIndex].relations / 3));
+          
+          const mission: DiplomaticMission = {
+            id: `mission_${missionType}_${kingdomName}_${Date.now()}`,
+            kingdom: kingdomName,
+            type: missionTemplate.type as any,
+            description: missionTemplate.description,
+            requirements: missionTemplate.requirements,
+            reward: missionTemplate.reward,
+            duration: missionTemplate.duration,
+            progress: 0,
+            risk: missionTemplate.risk,
+            successChance
+          };
+          
+          const updatedKingdoms = [...prev.kingdoms];
+          updatedKingdoms[kingdomIndex] = { 
+            ...updatedKingdoms[kingdomIndex], 
+            activeMission: mission,
+            lastInteraction: prev.time.tick
+          };
+          
+          return {
+            ...prev,
+            resources: newResources,
+            kingdoms: updatedKingdoms
+          };
+        });
       }
   };
 }

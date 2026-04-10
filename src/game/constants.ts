@@ -1,4 +1,4 @@
-import type { BuildingData, GameState, Resources, Law, Technology, Faction, SeasonType, GameSetup } from './types';
+import type { BuildingData, GameState, Resources, Law, Technology, Faction, SeasonType, GameSetup, DiplomaticMission, Heir, SuccessionLaw } from './types';
 
 export const INITIAL_RESOURCES: Resources = {
   wood: 400, stone: 300, food: 800, gold: 700, iron: 0, tools: 30, prestige: 100, knowledge: 60, piety: 0,
@@ -39,6 +39,81 @@ export const INITIAL_LAWS: Law[] = [
   { id: 'divine_right', name: 'Diritto Divino', description: '+2 pietà/tick, i nobili pagano più tasse.', active: false, cost: 150, effect: 'piety_boost' },
   { id: 'martial_law', name: 'Legge Marziale', description: '+100 difesa, la felicità cala costantemente.', active: false, cost: 200, effect: 'defense_boost' }
 ];
+
+export const DIPLOMATIC_MISSIONS: Record<string, Omit<DiplomaticMission, 'id' | 'progress' | 'kingdom'>> = {
+  trade: {
+    type: 'trade',
+    description: 'Invia mercanti per stabilire rotte commerciali.',
+    requirements: { gold: 50 },
+    reward: { relations: 15, resources: { gold: 30 } },
+    duration: 10,
+    risk: 10,
+    successChance: 80
+  },
+  military: {
+    type: 'military',
+    description: 'Offri supporto militare in cambio di alleanza.',
+    requirements: { gold: 100, tools: 20 },
+    reward: { relations: 25, resources: {} },
+    duration: 15,
+    risk: 30,
+    successChance: 60
+  },
+  cultural: {
+    type: 'cultural',
+    description: 'Scambia studiosi e artisti per migliorare i rapporti.',
+    requirements: { knowledge: 40 },
+    reward: { relations: 20, resources: { knowledge: 20 } },
+    duration: 12,
+    risk: 5,
+    successChance: 85
+  },
+  aid: {
+    type: 'aid',
+    description: 'Fornisci aiuti umanitari durante una crisi.',
+    requirements: { food: 100, bread: 50 },
+    reward: { relations: 30, piety: 15 },
+    duration: 8,
+    risk: 5,
+    successChance: 90
+  },
+  marriage: {
+    type: 'marriage',
+    description: 'Organizza un matrimonio reale per unire le dinastie.',
+    requirements: { gold: 300, prestige: 50 },
+    reward: { relations: 50 },
+    duration: 20,
+    risk: 40,
+    successChance: 50
+  },
+  embassy: {
+    type: 'embassy',
+    description: 'Costruisci un\'ambasciata permanente.',
+    requirements: { gold: 200, stone: 100 },
+    reward: { relations: 25, knowledge: 15 },
+    duration: 25,
+    risk: 15,
+    successChance: 75
+  },
+  tribute: {
+    type: 'tribute',
+    description: 'Offri tributi per evitare conflitti.',
+    requirements: { gold: 150, jewelry: 5 },
+    reward: { relations: 20 },
+    duration: 5,
+    risk: 5,
+    successChance: 95
+  },
+  espionage: {
+    type: 'espionage',
+    description: 'Invia spie per raccogliere informazioni.',
+    requirements: { gold: 80 },
+    reward: { relations: -10, knowledge: 40 },
+    duration: 10,
+    risk: 50,
+    successChance: 40
+  }
+};
 
 export const BUILDING_CATEGORIES: Record<string, string[]> = {
   'Base': ['house', 'farm', 'lumber_mill', 'stone_quarry', 'well', 'road'],
@@ -116,6 +191,18 @@ export function createInitialState(setup?: GameSetup): GameState {
     population.happiness = Math.min(100, Math.max(0, population.happiness));
   }
   
+  const initialHeir: Heir = {
+    id: 'heir-initial',
+    name: `${sovereignName.split(' ')[0]} II`,
+    age: 18,
+    relation: 'son',
+    claimStrength: 100,
+    traits: ['Scholar'],
+    isFavorite: false,
+    successionOrder: 1,
+    alive: true
+  };
+
   return {
     resources,
     time: { day: 1, month: 1, year: 1, season: 'spring', tick: 0 },
@@ -125,6 +212,17 @@ export function createInitialState(setup?: GameSetup): GameState {
     population,
     sovereign: { name: sovereignName, age: 45, traits: ['Just'], portrait: '👑' },
     heir: { name: `${sovereignName.split(' ')[0]} II`, age: 18, traits: ['Scholar'], portrait: '🧒' },
+    heirs: [initialHeir],
+    successionLaw: 'primogeniture',
+    religiousAuthority: {
+      popeRelation: 50,
+      bishopInfluence: 30,
+      excommunicationLevel: 'none',
+      crusadeActive: false,
+      heresyLevel: 0,
+      inquisitionActive: false
+    },
+    piety: 0,
     laws: INITIAL_LAWS,
     factions: [
       { type: 'merchants', name: 'Gilda Mercanti', favor: 0, bonus: 'Trade', effect: { resource: 'gold', bonus: 0.1 } } as Faction,
@@ -132,10 +230,10 @@ export function createInitialState(setup?: GameSetup): GameState {
       { type: 'military', name: 'Ordine Militare', favor: 0, bonus: 'Defense', effect: { event: 'defense_boost' } } as Faction
     ],
     kingdoms: [
-      { name: 'Wessex', relations: 50, status: 'peace' as const, strength: 80 },
-      { name: 'Mercia', relations: 30, status: 'peace' as const, strength: 60 },
-      { name: 'Vichinghi', relations: -20, status: 'war' as const, strength: 70 },
-      { name: 'Francia', relations: 40, status: 'trade' as const, strength: 90 }
+      { name: 'Wessex', relations: 50, status: 'peace' as const, strength: 80, missionsCompleted: 0, lastInteraction: 0 },
+      { name: 'Mercia', relations: 30, status: 'peace' as const, strength: 60, missionsCompleted: 0, lastInteraction: 0 },
+      { name: 'Vichinghi', relations: -20, status: 'war' as const, strength: 70, missionsCompleted: 0, lastInteraction: 0 },
+      { name: 'Francia', relations: 40, status: 'trade' as const, strength: 90, missionsCompleted: 0, lastInteraction: 0 }
     ],
     events: [],
     status: 'playing',

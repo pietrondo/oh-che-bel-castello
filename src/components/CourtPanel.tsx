@@ -1,26 +1,32 @@
 import React from 'react';
-import type { Sovereign, Law, Faction, Kingdom, DiplomaticMission } from '../game/types';
+import type { Sovereign, Law, Faction, Kingdom, DiplomaticMission, Heir, SuccessionLaw } from '../game/types';
 
 interface CourtPanelProps {
   sovereign: Sovereign;
   heir: Sovereign;
+  heirs: Heir[];
+  successionLaw: SuccessionLaw;
   laws: Law[];
   factions: Faction[];
   kingdoms: Kingdom[];
   gold: number;
   onEnactLaw: (id: string) => void;
   onUpdateDiplomacy: (kingdom: string, delta: number) => void;
+  onStartDiplomaticMission?: (kingdom: string, missionType: string) => void;
 }
 
 export function CourtPanel({ 
   sovereign, 
   heir, 
+  heirs,
+  successionLaw,
   laws, 
   factions, 
   kingdoms,
   gold,
   onEnactLaw,
-  onUpdateDiplomacy
+  onUpdateDiplomacy,
+  onStartDiplomaticMission
 }: CourtPanelProps) {
   const getFavorColor = (favor: number) => {
     if (favor >= 50) return '#4caf50';
@@ -61,9 +67,59 @@ export function CourtPanel({
   };
 
   const getMissionIcon = (type: string) => {
-    const icons: Record<string, string> = { trade: '🐫', military: '⚔️', cultural: '🎭', aid: '🤝' };
+    const icons: Record<string, string> = { 
+      trade: '🐫', 
+      military: '⚔️', 
+      cultural: '🎭', 
+      aid: '🤝',
+      marriage: '💍',
+      embassy: '🏛️',
+      tribute: '💰',
+      espionage: '🗡️'
+    };
     return icons[type] || '📜';
   };
+
+  const getMissionCost = (type: string) => {
+    const costs: Record<string, string> = {
+      trade: '50 oro',
+      military: '100 oro, 20 attrezzi',
+      cultural: '40 conoscenza',
+      aid: '100 cibo, 50 pane',
+      marriage: '300 oro, 50 prestigio',
+      embassy: '200 oro, 100 pietra',
+      tribute: '150 oro, 5 gioielli',
+      espionage: '80 oro'
+    };
+    return costs[type] || '';
+  };
+
+  const getMissionDesc = (type: string) => {
+    const descs: Record<string, string> = {
+      trade: 'Rotte Commerciali',
+      military: 'Supporto Militare',
+      cultural: 'Scambio Culturale',
+      aid: 'Aiuti Umanitari',
+      marriage: 'Matrimonio Reale',
+      embassy: 'Ambasciata',
+      tribute: 'Tributi',
+      espionage: 'Spionaggio'
+    };
+    return descs[type] || 'Missione';
+  };
+
+  const [expandedKingdom, setExpandedKingdom] = React.useState<string | null>(null);
+
+  const availableMissions: Array<{ type: string; icon: string; name: string; cost: string }> = [
+    { type: 'trade', icon: '🐫', name: 'Commercio', cost: '50 oro' },
+    { type: 'military', icon: '⚔️', name: 'Militare', cost: '100 oro, 20 attrezzi' },
+    { type: 'cultural', icon: '🎭', name: 'Cultura', cost: '40 conoscenza' },
+    { type: 'aid', icon: '🤝', name: 'Aiuti', cost: '100 cibo, 50 pane' },
+    { type: 'marriage', icon: '💍', name: 'Matrimonio', cost: '300 oro, 50 prestigio' },
+    { type: 'embassy', icon: '🏛️', name: 'Ambasciata', cost: '200 oro, 100 pietra' },
+    { type: 'tribute', icon: '💰', name: 'Tributi', cost: '150 oro, 5 gioielli' },
+    { type: 'espionage', icon: '🗡️', name: 'Spionaggio', cost: '80 oro' }
+  ];
 
   return (
     <div className="panel-view">
@@ -87,6 +143,138 @@ export function CourtPanel({
             <p>Età: {heir.age} anni</p>
             <p>Erede al trono</p>
           </div>
+        </div>
+      </div>
+
+      {/* Succession Law & Heirs */}
+      <div style={{ marginBottom: '40px' }}>
+        <h3 style={{ fontFamily: 'MedievalSharp', marginBottom: '20px', color: '#c9a227' }}>👑 Successione Dinastica</h3>
+        
+        <div style={{ 
+          background: 'linear-gradient(135deg, #fff8e1, #ffecb3)',
+          border: '2px solid #c9a227',
+          padding: '20px',
+          borderRadius: '12px',
+          marginBottom: '20px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <strong style={{ fontSize: '1.1em' }}>Legge di Successione:</strong>
+              <span style={{ 
+                marginLeft: '10px', 
+                padding: '4px 12px', 
+                background: '#c9a227', 
+                color: '#fff',
+                borderRadius: '6px',
+                fontWeight: 'bold',
+                fontSize: '0.9em'
+              }}>
+                {successionLaw === 'primogeniture' ? 'Primogenitura' : 
+                 successionLaw === 'ultimogeniture' ? 'Ultimogenitura' :
+                 successionLaw === 'elective' ? 'Elettiva' : 'Gavelkind'}
+              </span>
+            </div>
+            <div style={{ fontSize: '0.9em', color: '#666' }}>
+              {successionLaw === 'primogeniture' && 'Il figlio maggiore ereda il trono'}
+              {successionLaw === 'ultimogeniture' && 'Il figlio minore ereda il trono'}
+              {successionLaw === 'elective' && 'I nobili eleggono il successore'}
+              {successionLaw === 'gavelkind' && 'Il regno viene diviso tra gli eredi'}
+            </div>
+          </div>
+        </div>
+
+        <h4 style={{ fontFamily: 'MedievalSharp', marginBottom: '15px', color: '#c9a227' }}>Linea di Successione</h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
+          {heirs.filter(h => h.alive).sort((a, b) => a.successionOrder - b.successionOrder).map((heir, idx) => (
+            <div key={heir.id} style={{
+              background: idx === 0 ? 'linear-gradient(135deg, #fff8e1, #ffecb3)' : '#fff',
+              border: `2px solid ${idx === 0 ? '#c9a227' : '#ddd'}`,
+              padding: '15px',
+              borderRadius: '10px',
+              boxShadow: idx === 0 ? '0 4px 12px rgba(201,162,39,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
+              position: 'relative'
+            }}>
+              <div style={{ 
+                position: 'absolute', 
+                top: '-10px', 
+                left: '10px', 
+                background: idx === 0 ? '#c9a227' : '#999',
+                color: '#fff',
+                padding: '2px 10px',
+                borderRadius: '10px',
+                fontSize: '0.75em',
+                fontWeight: 'bold'
+              }}>
+                #{idx + 1} in linea
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '10px' }}>
+                <div style={{ fontSize: '2.5em' }}>
+                  {heir.relation === 'son' || heir.relation === 'daughter' ? '👶' : 
+                   heir.relation === 'brother' || heir.relation === 'sister' ? '🧑' : '🧒'}
+                </div>
+                <div>
+                  <h4 style={{ fontFamily: 'MedievalSharp', margin: '0 0 5px 0', fontSize: '1.1em' }}>{heir.name}</h4>
+                  <p style={{ fontSize: '0.85em', color: '#666', margin: '2px 0' }}>
+                    {heir.relation === 'son' ? 'Figlio' : 
+                     heir.relation === 'daughter' ? 'Figlia' :
+                     heir.relation === 'brother' ? 'Fratello' :
+                     heir.relation === 'sister' ? 'Sorella' :
+                     heir.relation === 'cousin' ? 'Cugino/a' :
+                     heir.relation === 'nephew' ? 'Nipote' : 'Nipote'} del sovrano
+                  </p>
+                  <p style={{ fontSize: '0.85em', color: '#666', margin: '2px 0' }}>
+                    Età: {Math.floor(heir.age)} anni
+                  </p>
+                  <p style={{ fontSize: '0.85em', color: '#666', margin: '2px 0' }}>
+                    Forza pretesa: 
+                    <span style={{ 
+                      color: heir.claimStrength >= 80 ? '#4caf50' : heir.claimStrength >= 50 ? '#ff9800' : '#f44336',
+                      fontWeight: 'bold'
+                    }}> {heir.claimStrength}%</span>
+                  </p>
+                  {heir.traits.length > 0 && (
+                    <div style={{ marginTop: '5px' }}>
+                      {heir.traits.map((trait, i) => (
+                        <span key={i} style={{ 
+                          fontSize: '0.75em', 
+                          background: '#e0e0e0', 
+                          padding: '2px 6px', 
+                          borderRadius: '4px',
+                          marginRight: '5px'
+                        }}>
+                          {trait}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {heir.isFavorite && (
+                <div 
+                  title="Preferito dal sovrano"
+                  style={{ 
+                    position: 'absolute', 
+                    top: '10px', 
+                    right: '10px', 
+                    fontSize: '1.2em'
+                  }}>
+                  ⭐
+                </div>
+              )}
+            </div>
+          ))}
+          {heirs.filter(h => h.alive).length === 0 && (
+            <div style={{ 
+              padding: '30px', 
+              textAlign: 'center', 
+              background: '#ffebee', 
+              borderRadius: '10px',
+              border: '2px solid #f44336'
+            }}>
+              <p style={{ color: '#c62828', fontWeight: 'bold', fontSize: '1.1em' }}>⚠️ Nessun erede disponibile!</p>
+              <p style={{ color: '#666', fontSize: '0.9em' }}>Rischio di crisi di successione elevato</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -171,7 +359,7 @@ export function CourtPanel({
       {/* Diplomacy */}
       <div>
         <h3 style={{ fontFamily: 'MedievalSharp', marginBottom: '20px', color: '#c9a227' }}>Relazioni Diplomatiche</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
           {kingdoms.map(kingdom => (
             <div key={kingdom.name} style={{
               background: '#fff',
@@ -184,7 +372,7 @@ export function CourtPanel({
                 <h4 style={{ fontFamily: 'MedievalSharp', margin: 0 }}>{kingdom.name}</h4>
                 {getStatusBadge(kingdom.status)}
               </div>
-              <p style={{ fontSize: '0.85em', color: '#666' }}>Forza: {kingdom.strength}</p>
+              <p style={{ fontSize: '0.85em', color: '#666' }}>Forza: {kingdom.strength} | Missioni completate: {kingdom.missionsCompleted || 0}</p>
               <div style={{ marginTop: '15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                   <span>Relazioni</span>
@@ -224,25 +412,29 @@ export function CourtPanel({
                       transition: 'width 0.3s'
                     }} />
                   </div>
+                  <div style={{ fontSize: '0.7em', color: '#666', marginTop: '5px', textAlign: 'center' }}>
+                    Chance successo: {Math.round(kingdom.activeMission.successChance)}%
+                  </div>
                 </div>
               )}
               
               <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
                 <button
                   onClick={() => onUpdateDiplomacy(kingdom.name, 10)}
+                  disabled={kingdom.status === 'war'}
                   style={{
                     flex: 1,
                     padding: '6px',
-                    background: '#4caf50',
+                    background: kingdom.status === 'war' ? '#bdbdbd' : '#4caf50',
                     border: 'none',
                     borderRadius: '4px',
                     color: '#fff',
                     fontFamily: 'MedievalSharp',
-                    cursor: 'pointer',
+                    cursor: kingdom.status === 'war' ? 'not-allowed' : 'pointer',
                     fontSize: '0.85em'
                   }}
                 >
-                  + Invia Dono
+                  + Dono
                 </button>
                 <button
                   onClick={() => onUpdateDiplomacy(kingdom.name, -10)}
@@ -260,7 +452,61 @@ export function CourtPanel({
                 >
                   - Provoca
                 </button>
+                {onStartDiplomaticMission && kingdom.status !== 'war' && !kingdom.activeMission && (
+                  <button
+                    onClick={() => setExpandedKingdom(expandedKingdom === kingdom.name ? null : kingdom.name)}
+                    style={{
+                      flex: 1,
+                      padding: '6px',
+                      background: '#2196f3',
+                      border: 'none',
+                      borderRadius: '4px',
+                      color: '#fff',
+                      fontFamily: 'MedievalSharp',
+                      cursor: 'pointer',
+                      fontSize: '0.85em'
+                    }}
+                  >
+                    📜 Missioni
+                  </button>
+                )}
               </div>
+              
+              {expandedKingdom === kingdom.name && onStartDiplomaticMission && (
+                <div style={{ 
+                  marginTop: '15px', 
+                  padding: '15px', 
+                  background: '#f5f5f5',
+                  borderRadius: '8px',
+                  border: '1px solid #ddd'
+                }}>
+                  <h5 style={{ fontFamily: 'MedievalSharp', marginBottom: '10px', fontSize: '0.95em' }}>Seleziona Missione</h5>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                    {availableMissions.map(mission => (
+                      <button
+                        key={mission.type}
+                        onClick={() => {
+                          onStartDiplomaticMission(kingdom.name, mission.type);
+                          setExpandedKingdom(null);
+                        }}
+                        style={{
+                          padding: '8px',
+                          background: '#fff',
+                          border: '2px solid #2196f3',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <div style={{ fontSize: '1.2em', marginBottom: '4px' }}>{mission.icon}</div>
+                        <div style={{ fontSize: '0.8em', fontWeight: 'bold', color: '#333' }}>{mission.name}</div>
+                        <div style={{ fontSize: '0.65em', color: '#666' }}>{mission.cost}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
