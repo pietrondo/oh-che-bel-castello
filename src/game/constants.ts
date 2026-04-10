@@ -20,11 +20,11 @@ const DIFFICULTY_MODIFIERS = {
 };
 
 export const INITIAL_TECHS: Technology[] = [
-  { id: 'agriculture_3', name: 'Rotazione Triennale', description: '+30% produzione grano e cibo.', cost: 100, unlocked: false, category: 'Economy', icon: '🌾' },
-  { id: 'anatomy', name: 'Medicina Scolastica', description: '+20% salute globale della popolazione.', cost: 150, unlocked: false, category: 'Science', icon: '⚕️' },
-  { id: 'double_entry', name: 'Contabilità', description: 'Riduce l\'inflazione del 50%.', cost: 200, unlocked: false, category: 'Economy', icon: '⚖️' },
-  { id: 'heavy_armor', name: 'Armature a Piastre', description: '+50 potenza difensiva fissa.', cost: 300, unlocked: false, category: 'Military', icon: '🛡️' },
-  { id: 'theology', name: 'Teologia Avanzata', description: '+5 pietà/tick e sblocca Cattedrale.', cost: 250, unlocked: false, category: 'Social', icon: '⛪' },
+  { id: 'agriculture_3', name: 'Rotazione Triennale', description: '+30% produzione grano e cibo.', cost: 100, unlocked: false, category: 'Economy', icon: '/assets/icons/tech_agriculture.png' },
+  { id: 'anatomy', name: 'Medicina Scolastica', description: '+20% salute globale della popolazione.', cost: 150, unlocked: false, category: 'Science', icon: '/assets/icons/tech_medicine.png' },
+  { id: 'double_entry', name: 'Contabilità', description: 'Riduce l\'inflazione del 50%.', cost: 200, unlocked: false, category: 'Economy', icon: '/assets/icons/tech_accounting.png' },
+  { id: 'heavy_armor', name: 'Armature a Piastre', description: '+50 potenza difensiva fissa.', cost: 300, unlocked: false, category: 'Military', icon: '/assets/icons/tech_armor.png' },
+  { id: 'theology', name: 'Teologia Avanzata', description: '+5 pietà/tick e sblocca Cattedrale.', cost: 250, unlocked: false, category: 'Social', icon: '/assets/icons/tech_theology.png' },
 ];
 
 export const SEASONS: { id: SeasonType; name: string; effects: { grain?: number; food?: number; happiness?: number; health?: number } }[] = [

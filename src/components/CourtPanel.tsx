@@ -68,16 +68,16 @@ export function CourtPanel({
 
   const getMissionIcon = (type: string) => {
     const icons: Record<string, string> = { 
-      trade: '🐫', 
-      military: '⚔️', 
-      cultural: '🎭', 
-      aid: '🤝',
-      marriage: '💍',
-      embassy: '🏛️',
-      tribute: '💰',
-      espionage: '🗡️'
+      trade: '/assets/icons/mission_trade.png', 
+      military: '/assets/icons/mission_military.png', 
+      cultural: '/assets/icons/mission_cultural.png', 
+      aid: '/assets/icons/mission_aid.png',
+      marriage: '/assets/icons/mission_marriage.png',
+      embassy: '/assets/icons/mission_embassy.png',
+      tribute: '/assets/icons/mission_tribute.png',
+      espionage: '/assets/icons/mission_espionage.png'
     };
-    return icons[type] || '📜';
+    return icons[type] || '/assets/icons/mission_generic.png';
   };
 
   const getMissionCost = (type: string) => {
@@ -111,14 +111,14 @@ export function CourtPanel({
   const [expandedKingdom, setExpandedKingdom] = React.useState<string | null>(null);
 
   const availableMissions: Array<{ type: string; icon: string; name: string; cost: string }> = [
-    { type: 'trade', icon: '🐫', name: 'Commercio', cost: '50 oro' },
-    { type: 'military', icon: '⚔️', name: 'Militare', cost: '100 oro, 20 attrezzi' },
-    { type: 'cultural', icon: '🎭', name: 'Cultura', cost: '40 conoscenza' },
-    { type: 'aid', icon: '🤝', name: 'Aiuti', cost: '100 cibo, 50 pane' },
-    { type: 'marriage', icon: '💍', name: 'Matrimonio', cost: '300 oro, 50 prestigio' },
-    { type: 'embassy', icon: '🏛️', name: 'Ambasciata', cost: '200 oro, 100 pietra' },
-    { type: 'tribute', icon: '💰', name: 'Tributi', cost: '150 oro, 5 gioielli' },
-    { type: 'espionage', icon: '🗡️', name: 'Spionaggio', cost: '80 oro' }
+    { type: 'trade', icon: '/assets/icons/mission_trade.png', name: 'Commercio', cost: '50 oro' },
+    { type: 'military', icon: '/assets/icons/mission_military.png', name: 'Militare', cost: '100 oro, 20 attrezzi' },
+    { type: 'cultural', icon: '/assets/icons/mission_cultural.png', name: 'Cultura', cost: '40 conoscenza' },
+    { type: 'aid', icon: '/assets/icons/mission_aid.png', name: 'Aiuti', cost: '100 cibo, 50 pane' },
+    { type: 'marriage', icon: '/assets/icons/mission_marriage.png', name: 'Matrimonio', cost: '300 oro, 50 prestigio' },
+    { type: 'embassy', icon: '/assets/icons/mission_embassy.png', name: 'Ambasciata', cost: '200 oro, 100 pietra' },
+    { type: 'tribute', icon: '/assets/icons/mission_tribute.png', name: 'Tributi', cost: '150 oro, 5 gioielli' },
+    { type: 'espionage', icon: '/assets/icons/mission_espionage.png', name: 'Spionaggio', cost: '80 oro' }
   ];
 
   return (
@@ -397,7 +397,7 @@ export function CourtPanel({
                   border: '1px solid #2196f3'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '1.2em' }}>{getMissionIcon(kingdom.activeMission.type)}</span>
+                    <img src={getMissionIcon(kingdom.activeMission.type)} alt={kingdom.activeMission.type} style={{ width: 20, height: 20 }} />
                     <strong style={{ fontSize: '0.85em' }}>{kingdom.activeMission.description}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75em', color: '#666', marginBottom: '5px' }}>
@@ -499,7 +499,7 @@ export function CourtPanel({
                           transition: 'all 0.2s'
                         }}
                       >
-                        <div style={{ fontSize: '1.2em', marginBottom: '4px' }}>{mission.icon}</div>
+                        <img src={mission.icon} alt={mission.name} style={{ width: 24, height: 24, marginBottom: '4px' }} />
                         <div style={{ fontSize: '0.8em', fontWeight: 'bold', color: '#333' }}>{mission.name}</div>
                         <div style={{ fontSize: '0.65em', color: '#666' }}>{mission.cost}</div>
                       </button>

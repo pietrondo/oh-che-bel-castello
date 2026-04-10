@@ -14,17 +14,17 @@ interface GameSetupProps {
 }
 
 const REGIONS = [
-  { id: 'north', name: 'Regno del Nord', description: 'Terre fredde ma ricche di minerali', bonus: '+20% produzione pietra, +15% ferro', icon: '🏔️' },
-  { id: 'south', name: 'Regno del Sud', description: 'Terre fertili e soleggiate', bonus: '+20% produzione grano, +15% vino', icon: '🌾' },
-  { id: 'east', name: 'Regno dell\'Est', description: 'Foreste incontaminate', bonus: '+20% produzione legno, +15% conoscenza', icon: '🌲' },
-  { id: 'west', name: 'Regno dell\'Ovest', description: 'Coste commerciali prospere', bonus: '+20% produzione oro, +15% commercio', icon: '🌊' },
-  { id: 'central', name: 'Regno Centrale', description: 'Cuore del continente', bonus: '+10% tutte le risorse, +5 felicità', icon: '👑' },
+  { id: 'north', name: 'Regno del Nord', description: 'Terre fredde ma ricche di minerali', bonus: '+20% produzione pietra, +15% ferro', icon: '/assets/icons/region_north.png' },
+  { id: 'south', name: 'Regno del Sud', description: 'Terre fertili e soleggiate', bonus: '+20% produzione grano, +15% vino', icon: '/assets/icons/region_south.png' },
+  { id: 'east', name: 'Regno dell\'Est', description: 'Foreste incontaminate', bonus: '+20% produzione legno, +15% conoscenza', icon: '/assets/icons/region_east.png' },
+  { id: 'west', name: 'Regno dell\'Ovest', description: 'Coste commerciali prospere', bonus: '+20% produzione oro, +15% commercio', icon: '/assets/icons/region_west.png' },
+  { id: 'central', name: 'Regno Centrale', description: 'Cuore del continente', bonus: '+10% tutte le risorse, +5 felicità', icon: '/assets/icons/region_central.png' },
 ];
 
 const DIFFICULTIES = [
-  { id: 'easy', name: 'Conte', description: 'Risorse iniziali +50%, eventi negativi -30%', icon: '🏰' },
-  { id: 'normal', name: 'Duca', description: 'Esperienza bilanciata', icon: '🏵️' },
-  { id: 'hard', name: 'Re', description: 'Risorse iniziali -25%, eventi negativi +20%', icon: '👑' },
+  { id: 'easy', name: 'Conte', description: 'Risorse iniziali +50%, eventi negativi -30%', icon: '/assets/icons/difficulty_easy.png' },
+  { id: 'normal', name: 'Duca', description: 'Esperienza bilanciata', icon: '/assets/icons/difficulty_normal.png' },
+  { id: 'hard', name: 'Re', description: 'Risorse iniziali -25%, eventi negativi +20%', icon: '/assets/icons/difficulty_hard.png' },
 ];
 
 const NAMES = [
@@ -149,7 +149,7 @@ export function GameSetup({ onStartGame, onLoadGame, hasSavedGames }: GameSetupP
                   className={`region-card ${selectedRegion === region.id ? 'selected' : ''}`}
                   onClick={() => setSelectedRegion(region.id)}
                 >
-                  <span className="region-icon">{region.icon}</span>
+                  <img src={region.icon} alt={region.name} className="region-icon" />
                   <span className="region-name">{region.name}</span>
                   <span className="region-desc">{region.description}</span>
                   <span className="region-bonus">{region.bonus}</span>
@@ -168,7 +168,7 @@ export function GameSetup({ onStartGame, onLoadGame, hasSavedGames }: GameSetupP
                   className={`difficulty-card ${difficulty === diff.id ? 'selected' : ''}`}
                   onClick={() => setDifficulty(diff.id as 'easy' | 'normal' | 'hard')}
                 >
-                  <span className="difficulty-icon">{diff.icon}</span>
+                   <img src={diff.icon} alt={diff.name} className="difficulty-icon" />
                   <span className="difficulty-name">{diff.name}</span>
                   <span className="difficulty-desc">{diff.description}</span>
                 </button>

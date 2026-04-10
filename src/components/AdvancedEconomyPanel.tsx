@@ -27,10 +27,10 @@ export function AdvancedEconomyPanel({
   onRepayDebt
 }: AdvancedEconomyPanelProps) {
   const seasons = {
-    spring: { name: 'Primavera', icon: '🌸', effect: '+20% grano' },
-    summer: { name: 'Estate', icon: '☀️', effect: '+10 cibo' },
-    autumn: { name: 'Autunno', icon: '🍂', effect: '+50% grano' },
-    winter: { name: 'Inverno', icon: '❄️', effect: '-30% cibo' }
+    spring: { name: 'Primavera', icon: '/assets/icons/season_spring.png', effect: '+20% grano' },
+    summer: { name: 'Estate', icon: '/assets/icons/season_summer.png', effect: '+10 cibo' },
+    autumn: { name: 'Autunno', icon: '/assets/icons/season_autumn.png', effect: '+50% grano' },
+    winter: { name: 'Inverno', icon: '/assets/icons/season_winter.png', effect: '-30% cibo' }
   };
 
   const taxImpact = {
@@ -68,7 +68,7 @@ export function AdvancedEconomyPanel({
           borderRadius: '12px',
           border: '2px solid #2196f3'
         }}>
-          <div style={{ fontSize: '2.5em', marginBottom: '10px' }}>{seasons[season as keyof typeof seasons]?.icon}</div>
+           <img src={seasons[season as keyof typeof seasons]?.icon} alt={seasons[season as keyof typeof seasons]?.name} style={{ width: 40, height: 40, marginBottom: '10px' }} />
           <div style={{ fontFamily: 'MedievalSharp', fontSize: '1.2em', color: '#1565c0' }}>
             {seasons[season as keyof typeof seasons]?.name}
           </div>

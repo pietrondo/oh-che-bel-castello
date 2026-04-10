@@ -21,7 +21,13 @@ export function NotificationSystem({ notifications, onDismiss }: NotificationSys
           className={`notification notification-${n.type}`}
           onClick={() => onDismiss(n.id)}
         >
-          <span className="notification-icon">{n.icon}</span>
+          <span className="notification-icon">
+            {n.icon.startsWith('/') ? (
+              <img src={n.icon} alt="" style={{ width: 20, height: 20 }} />
+            ) : (
+              <span>{n.icon}</span>
+            )}
+          </span>
           <span className="notification-message">{n.message}</span>
         </div>
       ))}

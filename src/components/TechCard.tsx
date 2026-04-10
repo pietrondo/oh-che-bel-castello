@@ -12,7 +12,13 @@ export function TechCard({ technology, knowledge, onUnlock }: TechCardProps) {
 
   return (
     <div className={`tech-card ${technology.unlocked ? 'unlocked' : ''}`}>
-      <div className="tech-icon">{technology.icon}</div>
+      <div className="tech-icon">
+        {technology.icon.startsWith('/') ? (
+          <img src={technology.icon} alt={technology.name} style={{ width: 32, height: 32 }} />
+        ) : (
+          <span>{technology.icon}</span>
+        )}
+      </div>
       <div className="tech-info">
         <h3>{technology.name}</h3>
         <p>{technology.description}</p>
